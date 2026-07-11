@@ -15,7 +15,7 @@ import (
 	"sportloga/internal/apitypes"
 	"sportloga/internal/auth/model"
 	"sportloga/internal/auth/service"
-	"sportloga/internal/httpserver"
+	"sportloga/internal/response"
 )
 
 // AuthHandler exposes signup/verify/login/refresh/logout as
@@ -46,24 +46,24 @@ func NewAuthHandler(svc *service.AuthService) *AuthHandler {
 func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	var req model.SignupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpserver.WriteError(w, http.StatusBadRequest, "invalid body")
+		response.WriteError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
 	if req.Email == "" || len(req.Password) < 8 {
-		httpserver.WriteError(w, http.StatusBadRequest, "email required, password min 8 chars")
+		response.WriteError(w, http.StatusBadRequest, "email required, password min 8 chars")
 		return
 	}
 
 	err := h.svc.Signup(r.Context(), req.Email, req.Password)
 	switch {
 	case err == nil:
-		httpserver.WriteJSON(w, http.StatusCreated, model.SignupResponse{
+		response.WriteJSON(w, http.StatusCreated, model.SignupResponse{
 			Message: "account created, check your email for a verification code",
 		})
 	case errors.Is(err, service.ErrEmailAlreadyRegistered):
-		httpserver.WriteError(w, http.StatusConflict, err.Error())
+		response.WriteError(w, http.StatusConflict, err.Error())
 	default:
-		httpserver.WriteError(w, http.StatusInternalServerError, "internal error")
+		response.WriteError(w, http.StatusInternalServerError, "internal error")
 	}
 }
 
@@ -88,23 +88,23 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
 	var req model.VerifyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpserver.WriteError(w, http.StatusBadRequest, "invalid body")
+		response.WriteError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
 
 	pair, err := h.svc.Verify(r.Context(), req.Email, req.Code)
 	switch {
 	case err == nil:
-		httpserver.WriteJSON(w, http.StatusOK, model.TokenPairResponse{
+		response.WriteJSON(w, http.StatusOK, model.TokenPairResponse{
 			AccessToken:  pair.AccessToken,
 			RefreshToken: pair.RefreshToken,
 		})
 	case errors.Is(err, service.ErrOTPNotFound), errors.Is(err, service.ErrOTPExpired), errors.Is(err, service.ErrOTPIncorrect):
-		httpserver.WriteError(w, http.StatusBadRequest, err.Error())
+		response.WriteError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, service.ErrOTPMaxAttempts):
-		httpserver.WriteError(w, http.StatusTooManyRequests, err.Error())
+		response.WriteError(w, http.StatusTooManyRequests, err.Error())
 	default:
-		httpserver.WriteError(w, http.StatusInternalServerError, "internal error")
+		response.WriteError(w, http.StatusInternalServerError, "internal error")
 	}
 }
 
@@ -128,23 +128,23 @@ func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req model.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpserver.WriteError(w, http.StatusBadRequest, "invalid body")
+		response.WriteError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
 
 	pair, err := h.svc.Login(r.Context(), req.Email, req.Password)
 	switch {
 	case err == nil:
-		httpserver.WriteJSON(w, http.StatusOK, model.TokenPairResponse{
+		response.WriteJSON(w, http.StatusOK, model.TokenPairResponse{
 			AccessToken:  pair.AccessToken,
 			RefreshToken: pair.RefreshToken,
 		})
 	case errors.Is(err, service.ErrInvalidCredentials):
-		httpserver.WriteError(w, http.StatusUnauthorized, err.Error())
+		response.WriteError(w, http.StatusUnauthorized, err.Error())
 	case errors.Is(err, service.ErrEmailNotVerified):
-		httpserver.WriteError(w, http.StatusForbidden, err.Error())
+		response.WriteError(w, http.StatusForbidden, err.Error())
 	default:
-		httpserver.WriteError(w, http.StatusInternalServerError, "internal error")
+		response.WriteError(w, http.StatusInternalServerError, "internal error")
 	}
 }
 
@@ -166,21 +166,21 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var req model.RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpserver.WriteError(w, http.StatusBadRequest, "invalid body")
+		response.WriteError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
 
 	pair, err := h.svc.Refresh(r.Context(), req.RefreshToken)
 	switch {
 	case err == nil:
-		httpserver.WriteJSON(w, http.StatusOK, model.TokenPairResponse{
+		response.WriteJSON(w, http.StatusOK, model.TokenPairResponse{
 			AccessToken:  pair.AccessToken,
 			RefreshToken: pair.RefreshToken,
 		})
 	case errors.Is(err, service.ErrRefreshTokenInvalid):
-		httpserver.WriteError(w, http.StatusUnauthorized, err.Error())
+		response.WriteError(w, http.StatusUnauthorized, err.Error())
 	default:
-		httpserver.WriteError(w, http.StatusInternalServerError, "internal error")
+		response.WriteError(w, http.StatusInternalServerError, "internal error")
 	}
 }
 
@@ -200,10 +200,10 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	var req model.LogoutRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpserver.WriteError(w, http.StatusBadRequest, "invalid body")
+		response.WriteError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
 
 	_ = h.svc.Logout(r.Context(), req.RefreshToken)
-	httpserver.WriteJSON(w, http.StatusOK, apitypes.MessageResponse{Message: "logged out"})
+	response.WriteJSON(w, http.StatusOK, apitypes.MessageResponse{Message: "logged out"})
 }

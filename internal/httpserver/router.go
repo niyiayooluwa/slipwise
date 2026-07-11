@@ -1,3 +1,9 @@
+// Package httpserver holds cross-domain HTTP plumbing: the chi router
+// and route wiring for every domain. Shared response helpers
+// (WriteJSON/WriteError) live in internal/response instead of here —
+// this package imports domain handler packages to mount their routes,
+// so it can never also be something a handler package imports, or
+// you get an import cycle.
 package httpserver
 
 import (

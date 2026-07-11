@@ -7,6 +7,8 @@
 package httpserver
 
 import (
+	"errors"
+	"net/http"
 	"time"
 
 	"sportloga/internal/auth"
@@ -36,7 +38,30 @@ func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string) c
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+
+	// Resolves the client IP into the request context so downstream
+	// code (the login rate limiter below, request logging) can read
+	// it via middleware.GetClientIP instead of the request's raw
+	// RemoteAddr. This deliberately assumes the server is directly
+	// internet-facing with NO reverse proxy/load balancer/CDN in
+	// front of it — the correct assumption for local dev and for
+	// however Sportloga is deployed today.
+	//
+	// THIS MUST CHANGE if a reverse proxy, load balancer, or CDN is
+	// ever put in front of this server — at that point RemoteAddr
+	// stops being the real client and becomes the proxy's own address
+	// for every request, which silently breaks both rate limiting
+	// (everyone shares one bucket) and any IP-based logging. Swap this
+	// one line for whichever of chi's other ClientIPFrom* middlewares
+	// matches the actual infrastructure then (e.g.
+	// ClientIPFromHeader("CF-Connecting-IP") behind Cloudflare,
+	// ClientIPFromXFF(trustedCIDRs...) behind a known proxy fleet).
+	// Never bring back the old middleware.RealIP — it trusts
+	// client-supplied headers unconditionally regardless of whether
+	// there's actually a proxy setting them, which is the spoofing
+	// vulnerability this replaced.
+	r.Use(middleware.ClientIPFromRemoteAddr)
+
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
@@ -81,11 +106,31 @@ func authRoutes(h *authhandler.AuthHandler) func(r chi.Router) {
 		// meaningful (a password check) and cheap to spam, unlike
 		// signup/verify/resend which already have their own limits
 		// (unique email, OTP attempt count, resend cooldown). 5
-		// requests/minute per IP is generous for a real user
-		// mistyping a password, punishing for a brute-force script.
-		r.With(httprate.LimitByIP(5, time.Minute)).Post("/login", h.Login)
+		// requests/minute per resolved client IP is generous for a
+		// real user mistyping a password, punishing for a
+		// brute-force script.
+		r.With(httprate.LimitBy(5, time.Minute, clientIPKey)).Post("/login", h.Login)
 
 		r.Post("/refresh", h.Refresh)
 		r.Post("/logout", h.Logout)
 	}
+}
+
+// clientIPKey is the rate-limit key function for login: it reads the
+// IP that ClientIPFromRemoteAddr already resolved (see NewRouter) and
+// canonicalizes it via httprate.CanonicalizeIP, which buckets IPv6
+// clients by /64 rather than by exact address — otherwise an IPv6
+// client with a delegated /64 could rotate its address per request
+// (trivial via SLAAC) and get a fresh rate-limit bucket every time,
+// defeating the limit entirely. If no client IP was resolved (should
+// not happen with ClientIPFromRemoteAddr installed, but would happen
+// if that middleware were ever removed), every request falls into one
+// shared bucket — stricter than intended, not a security hole, but a
+// sign this middleware ordering broke.
+func clientIPKey(r *http.Request) (string, error) {
+	ip := middleware.GetClientIP(r.Context())
+	if ip == "" {
+		return "", errors.New("no client ip resolved on request context")
+	}
+	return httprate.CanonicalizeIP(ip), nil
 }

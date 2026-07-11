@@ -7,7 +7,7 @@ DOCS_OUT   := docs
 BINARY_OUT := bin/server
 MAIN_PKG   := ./cmd/server
 
-.PHONY: tools tidy sqlc swag generate goimports vet staticcheck lint test build run migrate-up migrate-down clean ci
+.PHONY: tools tidy sqlc swag generate goimports vet staticcheck lint test check-proxy build run migrate-up migrate-down clean ci
 
 # --- one-time setup ---
 
@@ -66,7 +66,17 @@ lint: staticcheck
 test: generate
 	go test ./... -v
 
-build: staticcheck test
+check-proxy:
+	@if grep -q ClientIPFromRemoteAddr internal/httpserver/router.go; then \
+		echo "======================================================================="; \
+		echo "  ⚠️  WARNING: Using middleware.ClientIPFromRemoteAddr in router.go! "; \
+		echo "  If this server runs behind a reverse proxy, load balancer, or CDN  "; \
+		echo "  (e.g., Nginx, Cloudflare), swap it for ClientIPFromXFF or similar. "; \
+		echo "  Failing to do so breaks rate limiting and IP logging silently.     "; \
+		echo "======================================================================="; \
+	fi
+
+build: staticcheck test check-proxy
 	go build -o $(BINARY_OUT) $(MAIN_PKG)
 
 run: build

@@ -236,7 +236,8 @@ func (h *AuthHandler) ResendOTP(w http.ResponseWriter, r *http.Request) {
 
 // Logout godoc
 // @Summary      Revoke a refresh token
-// @Description  Idempotent — revoking an already-invalid or
+// @Description  Idempotent
+// @Description  Revoking an already-invalid or
 // @Description  already-revoked token still returns 200, since from
 // @Description  the caller's point of view "logged out" is true
 // @Description  either way.

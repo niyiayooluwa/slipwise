@@ -11,7 +11,7 @@ package apitypes
 // so error shapes are predictable for frontend/QA.
 type ErrorResponse struct {
 	// Error is a short, user-displayable reason the request failed.
-	Error string `json:"error" example:"invalid email or password"`
+	Error string `json:"error"`
 } // @name ErrorResponse
 
 // MessageResponse is a generic human-readable confirmation, used

@@ -10,6 +10,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"sportloga/internal/apitypes"
@@ -63,6 +64,7 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, service.ErrEmailAlreadyRegistered):
 		response.WriteError(w, http.StatusConflict, err.Error())
 	default:
+		log.Printf("auth handler error: %v", err)
 		response.WriteError(w, http.StatusInternalServerError, "internal error")
 	}
 }
@@ -104,6 +106,7 @@ func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, service.ErrOTPMaxAttempts):
 		response.WriteError(w, http.StatusTooManyRequests, err.Error())
 	default:
+		log.Printf("auth handler error: %v", err)
 		response.WriteError(w, http.StatusInternalServerError, "internal error")
 	}
 }
@@ -144,6 +147,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, service.ErrEmailNotVerified):
 		response.WriteError(w, http.StatusForbidden, err.Error())
 	default:
+		log.Printf("auth handler error: %v", err)
 		response.WriteError(w, http.StatusInternalServerError, "internal error")
 	}
 }
@@ -180,6 +184,52 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, service.ErrRefreshTokenInvalid):
 		response.WriteError(w, http.StatusUnauthorized, err.Error())
 	default:
+		log.Printf("auth handler error: %v", err)
+		response.WriteError(w, http.StatusInternalServerError, "internal error")
+	}
+}
+
+// ResendOTP godoc
+// @Summary      Request a fresh signup OTP
+// @Description  Self-service escape hatch for an account stuck
+// @Description  mid-verification — used when the original code
+// @Description  expired (10 min) or was guessed wrong 3 times. Rate
+// @Description  limited to one send per 60 seconds per email so a
+// @Description  caller can't hammer the mail provider or the
+// @Description  recipient's inbox. The previous code is not
+// @Description  explicitly revoked; it simply stops being the
+// @Description  "latest" one once this issues a new one.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body model.ResendOTPRequest true "email to resend a code to"
+// @Success      200 {object} apitypes.MessageResponse
+// @Failure      400 {object} apitypes.ErrorResponse "account already verified"
+// @Failure      404 {object} apitypes.ErrorResponse "no account for this email"
+// @Failure      429 {object} apitypes.ErrorResponse "resend requested too soon after the last one"
+// @Failure      500 {object} apitypes.ErrorResponse "DB or mail-provider failure"
+// @Router       /auth/resend-otp [post]
+func (h *AuthHandler) ResendOTP(w http.ResponseWriter, r *http.Request) {
+	var req model.ResendOTPRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+
+	err := h.svc.ResendOTP(r.Context(), req.Email)
+	switch {
+	case err == nil:
+		response.WriteJSON(w, http.StatusOK, apitypes.MessageResponse{
+			Message: "a new code has been sent to your email",
+		})
+	case errors.Is(err, service.ErrUserNotFound):
+		response.WriteError(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, service.ErrAlreadyVerified):
+		response.WriteError(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, service.ErrOTPCooldown):
+		response.WriteError(w, http.StatusTooManyRequests, err.Error())
+	default:
+		log.Printf("auth handler error: %v", err)
 		response.WriteError(w, http.StatusInternalServerError, "internal error")
 	}
 }

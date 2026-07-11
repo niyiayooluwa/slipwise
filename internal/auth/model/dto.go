@@ -33,6 +33,15 @@ type VerifyRequest struct {
 	Code string `json:"code" example:"482913"`
 } // @name VerifyRequest
 
+// ResendOTPRequest is the body for POST /auth/resend-otp. Requests a
+// fresh signup OTP for an account that hasn't completed verification
+// yet — e.g. because the original code expired or was guessed wrong
+// 3 times.
+type ResendOTPRequest struct {
+	// Email identifies which account to send a fresh code to.
+	Email string `json:"email" example:"user@example.com"`
+} // @name ResendOTPRequest
+
 // LoginRequest is the body for POST /auth/login.
 type LoginRequest struct {
 	// Email is the account's login identifier.

@@ -41,3 +41,19 @@ var ErrOTPIncorrect = errors.New("incorrect code")
 // all three cases for the same anti-enumeration reason as
 // ErrInvalidCredentials. Maps to HTTP 401.
 var ErrRefreshTokenInvalid = errors.New("invalid or expired refresh token")
+
+// ErrUserNotFound is returned by ResendOTP when no account exists for
+// the given email. Unlike Login, this isn't hidden behind a generic
+// message — Signup already reveals account existence via 409, so
+// there's no new enumeration surface to protect here. Maps to HTTP 404.
+var ErrUserNotFound = errors.New("no account found for this email")
+
+// ErrAlreadyVerified is returned by ResendOTP when the account exists
+// but has already completed signup verification — the caller should
+// be using Login, not requesting another code. Maps to HTTP 400.
+var ErrAlreadyVerified = errors.New("account already verified, try logging in")
+
+// ErrOTPCooldown is returned by ResendOTP when a live OTP was issued
+// too recently. Prevents a caller from hammering the email provider
+// (and a user's inbox) with repeated sends. Maps to HTTP 429.
+var ErrOTPCooldown = errors.New("please wait before requesting another code")

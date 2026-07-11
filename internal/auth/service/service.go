@@ -23,6 +23,11 @@ const otpTTL = 10 * time.Minute
 // single OTP before it's dead and a new one must be requested.
 const otpMaxAttempts = 3
 
+// otpResendCooldown is the minimum time between OTP sends for the same
+// email — stops a caller (or a user mashing "resend") from hammering
+// the mail provider and the recipient's inbox.
+const otpResendCooldown = 60 * time.Second
+
 // otpPurposeSignup tags OTPs issued for signup email verification,
 // distinct from any future purpose (e.g. password reset) that might
 // share the same otp_codes table.
@@ -140,6 +145,32 @@ func (s *AuthService) Verify(ctx context.Context, email, code string) (TokenPair
 	}
 
 	return s.issueTokenPair(ctx, user.ID)
+}
+
+// ResendOTP issues a fresh signup OTP for an account that never
+// completed verification — the self-service escape hatch for a code
+// that expired or got burned through 3 wrong guesses. Deliberately
+// does NOT touch/revoke the previous OTP row; GetLatestOTP always
+// picks the most recently created unused one, so the old code simply
+// stops being reachable once a newer one exists.
+func (s *AuthService) ResendOTP(ctx context.Context, email string) error {
+	user, err := s.repo.GetUserByEmail(ctx, email)
+	if err != nil {
+		return ErrUserNotFound
+	}
+	if user.EmailVerifiedAt != nil {
+		return ErrAlreadyVerified
+	}
+
+	latest, err := s.repo.GetLatestOTP(ctx, email, otpPurposeSignup)
+	if err == nil && time.Since(latest.CreatedAt) < otpResendCooldown {
+		return ErrOTPCooldown
+	}
+	// err != nil here just means there's no live (unused) OTP yet —
+	// that's the normal case, not a failure, so we fall through and
+	// issue one.
+
+	return s.issueAndSendOTP(ctx, email)
 }
 
 // Login checks password and verification status, then issues a fresh

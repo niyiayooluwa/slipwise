@@ -11,33 +11,33 @@ import (
 )
 
 type OtpCode struct {
-	ID           uuid.UUID   `json:"id"`
-	Email        string      `json:"email"`
-	CodeHash     string      `json:"code_hash"`
-	Purpose      string      `json:"purpose"`
-	AttemptCount int32       `json:"attempt_count"`
-	MaxAttempts  int32       `json:"max_attempts"`
-	ExpiresAt    time.Time   `json:"expires_at"`
-	UsedAt       **time.Time `json:"used_at"`
-	CreatedAt    time.Time   `json:"created_at"`
+	ID           uuid.UUID  `json:"id"`
+	Email        string     `json:"email"`
+	CodeHash     string     `json:"code_hash"`
+	Purpose      string     `json:"purpose"`
+	AttemptCount int32      `json:"attempt_count"`
+	MaxAttempts  int32      `json:"max_attempts"`
+	ExpiresAt    time.Time  `json:"expires_at"`
+	UsedAt       *time.Time `json:"used_at"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 type RefreshToken struct {
-	ID        uuid.UUID   `json:"id"`
-	UserID    uuid.UUID   `json:"user_id"`
-	TokenHash string      `json:"token_hash"`
-	ExpiresAt time.Time   `json:"expires_at"`
-	RevokedAt **time.Time `json:"revoked_at"`
-	CreatedAt time.Time   `json:"created_at"`
+	ID        uuid.UUID  `json:"id"`
+	UserID    uuid.UUID  `json:"user_id"`
+	TokenHash string     `json:"token_hash"`
+	ExpiresAt time.Time  `json:"expires_at"`
+	RevokedAt *time.Time `json:"revoked_at"`
+	CreatedAt time.Time  `json:"created_at"`
 }
 
 type User struct {
-	ID              uuid.UUID   `json:"id"`
-	FirstName       *string     `json:"first_name"`
-	LastName        *string     `json:"last_name"`
-	Email           string      `json:"email"`
-	PasswordHash    string      `json:"password_hash"`
-	EmailVerifiedAt **time.Time `json:"email_verified_at"`
-	CreatedAt       time.Time   `json:"created_at"`
-	UpdatedAt       time.Time   `json:"updated_at"`
+	ID              uuid.UUID  `json:"id"`
+	FirstName       *string    `json:"first_name"`
+	LastName        *string    `json:"last_name"`
+	Email           string     `json:"email"`
+	PasswordHash    string     `json:"password_hash"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }

@@ -78,7 +78,7 @@ func NewAuthService(repo repository.AuthRepository, issuer *auth.JWTIssuer, mail
 // succeeds — this trades "a signup that's abandoned mid-OTP leaves a
 // dangling unverified row" for "an OTP always has a real user_id to
 // belong to." Returns ErrEmailAlreadyRegistered if email is taken.
-func (s *AuthService) Signup(ctx context.Context, email, password string) error {
+func (s *AuthService) Signup(ctx context.Context, firstName, lastName, email, password string) error {
 	if _, err := s.repo.GetUserByEmail(ctx, email); err == nil {
 		return ErrEmailAlreadyRegistered
 	}
@@ -88,7 +88,7 @@ func (s *AuthService) Signup(ctx context.Context, email, password string) error 
 		return err
 	}
 
-	user, err := s.repo.CreateUser(ctx, email, pwHash)
+	user, err := s.repo.CreateUser(ctx, firstName, lastName, email, pwHash)
 	if err != nil {
 		return err
 	}

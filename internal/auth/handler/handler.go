@@ -38,7 +38,7 @@ func NewAuthHandler(svc *service.AuthService) *AuthHandler {
 // @Tags         auth
 // @Accept       json
 // @Produce      json
-// @Param        request body model.SignupRequest true "email and password"
+// @Param        request body model.SignupRequest true "first_name, last_name, email and password"
 // @Success      201 {object} model.SignupResponse
 // @Failure      400 {object} apitypes.ErrorResponse "missing email, or password under 8 chars"
 // @Failure      409 {object} apitypes.ErrorResponse "email already registered"
@@ -50,12 +50,12 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		response.WriteError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
-	if req.Email == "" || len(req.Password) < 8 {
-		response.WriteError(w, http.StatusBadRequest, "email required, password min 8 chars")
+	if req.FirstName == "" || req.LastName == "" || req.Email == "" || len(req.Password) < 8 {
+		response.WriteError(w, http.StatusBadRequest, "first_name, last_name, email required, password min 8 chars")
 		return
 	}
 
-	err := h.svc.Signup(r.Context(), req.Email, req.Password)
+	err := h.svc.Signup(r.Context(), req.FirstName, req.LastName, req.Email, req.Password)
 	switch {
 	case err == nil:
 		response.WriteJSON(w, http.StatusCreated, model.SignupResponse{

@@ -9,6 +9,8 @@ package model
 
 // SignupRequest is the body for POST /auth/signup.
 type SignupRequest struct {
+	FirstName string `json:"first_name" example:"John"`
+	LastName  string `json:"last_name" example:"Doe"`
 	// Email is the account's login identifier. Must be unique.
 	Email string `json:"email" example:"user@example.com"`
 	// Password is the plaintext password from the client; hashed

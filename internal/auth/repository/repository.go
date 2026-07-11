@@ -20,7 +20,7 @@ import (
 // on. Defined as an interface so the service can be tested against a
 // fake without spinning up Postgres.
 type AuthRepository interface {
-	CreateUser(ctx context.Context, email, passwordHash string) (db.User, error)
+	CreateUser(ctx context.Context, firstName, lastName, email, passwordHash string) (db.User, error)
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
 	MarkEmailVerified(ctx context.Context, userID uuid.UUID) error
@@ -46,8 +46,13 @@ func NewAuthRepository(q *db.Queries) AuthRepository {
 	return &repo{q: q}
 }
 
-func (r *repo) CreateUser(ctx context.Context, email, passwordHash string) (db.User, error) {
-	u, err := r.q.CreateUser(ctx, db.CreateUserParams{Email: email, PasswordHash: passwordHash})
+func (r *repo) CreateUser(ctx context.Context, firstName, lastName, email, passwordHash string) (db.User, error) {
+	u, err := r.q.CreateUser(ctx, db.CreateUserParams{
+		FirstName:    &firstName,
+		LastName:     &lastName,
+		Email:        email,
+		PasswordHash: passwordHash,
+	})
 	return u, wrap(err)
 }
 

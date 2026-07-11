@@ -10,7 +10,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"sportloga/internal/apitypes"
@@ -38,9 +38,9 @@ func NewAuthHandler(svc *service.AuthService) *AuthHandler {
 // @Tags         auth
 // @Accept       json
 // @Produce      json
-// @Param        request body model.SignupRequest true "first_name, last_name, email and password"
+// @Param        request body model.SignupRequest true "first name, last name, email, and password"
 // @Success      201 {object} model.SignupResponse
-// @Failure      400 {object} apitypes.ErrorResponse "missing email, or password under 8 chars"
+// @Failure      400 {object} apitypes.ErrorResponse "missing required field, or password under 8 chars"
 // @Failure      409 {object} apitypes.ErrorResponse "email already registered"
 // @Failure      500 {object} apitypes.ErrorResponse "hashing or DB failure"
 // @Router       /auth/signup [post]
@@ -51,7 +51,7 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.FirstName == "" || req.LastName == "" || req.Email == "" || len(req.Password) < 8 {
-		response.WriteError(w, http.StatusBadRequest, "first_name, last_name, email required, password min 8 chars")
+		response.WriteError(w, http.StatusBadRequest, "first name, last name, and email required, password min 8 chars")
 		return
 	}
 
@@ -64,7 +64,7 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, service.ErrEmailAlreadyRegistered):
 		response.WriteError(w, http.StatusConflict, err.Error())
 	default:
-		log.Printf("auth handler error: %v", err)
+		slog.Error("auth handler error", "endpoint", "signup", "error", err)
 		response.WriteError(w, http.StatusInternalServerError, "internal error")
 	}
 }
@@ -106,7 +106,7 @@ func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, service.ErrOTPMaxAttempts):
 		response.WriteError(w, http.StatusTooManyRequests, err.Error())
 	default:
-		log.Printf("auth handler error: %v", err)
+		slog.Error("auth handler error", "endpoint", "verify", "error", err)
 		response.WriteError(w, http.StatusInternalServerError, "internal error")
 	}
 }
@@ -147,7 +147,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, service.ErrEmailNotVerified):
 		response.WriteError(w, http.StatusForbidden, err.Error())
 	default:
-		log.Printf("auth handler error: %v", err)
+		slog.Error("auth handler error", "endpoint", "login", "error", err)
 		response.WriteError(w, http.StatusInternalServerError, "internal error")
 	}
 }
@@ -184,7 +184,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, service.ErrRefreshTokenInvalid):
 		response.WriteError(w, http.StatusUnauthorized, err.Error())
 	default:
-		log.Printf("auth handler error: %v", err)
+		slog.Error("auth handler error", "endpoint", "refresh", "error", err)
 		response.WriteError(w, http.StatusInternalServerError, "internal error")
 	}
 }
@@ -229,15 +229,14 @@ func (h *AuthHandler) ResendOTP(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, service.ErrOTPCooldown):
 		response.WriteError(w, http.StatusTooManyRequests, err.Error())
 	default:
-		log.Printf("auth handler error: %v", err)
+		slog.Error("auth handler error", "endpoint", "resend-otp", "error", err)
 		response.WriteError(w, http.StatusInternalServerError, "internal error")
 	}
 }
 
 // Logout godoc
 // @Summary      Revoke a refresh token
-// @Description  Idempotent
-// @Description  Revoking an already-invalid or
+// @Description  Idempotent — revoking an already-invalid or
 // @Description  already-revoked token still returns 200, since from
 // @Description  the caller's point of view "logged out" is true
 // @Description  either way.

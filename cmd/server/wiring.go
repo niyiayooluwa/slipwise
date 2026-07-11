@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -22,7 +22,7 @@ func mustConnectDB(databaseURL string) *pgxpool.Pool {
 	if err := pool.Ping(context.Background()); err != nil {
 		log.Fatalf("database ping failed: %v", err)
 	}
-	fmt.Println("✅ connected to database successfully")
+	slog.Info("connected to database successfully")
 
 	return pool
 }

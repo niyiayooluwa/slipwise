@@ -37,6 +37,13 @@ type Config struct {
 	// to "8080" if unset, since a missing PORT shouldn't be fatal the
 	// way a missing DATABASE_URL is.
 	Port string
+	// AllowedOrigins lists the frontend origins allowed to call this
+	// API cross-origin (e.g. "https://app.sportloga.com"). Optional —
+	// defaults to ["*"] for local dev, where nothing outside your own
+	// machine needs to be locked down yet. Set CORS_ALLOWED_ORIGINS as
+	// a comma-separated list once there's a real frontend origin to
+	// restrict to.
+	AllowedOrigins []string
 }
 
 // Load reads .env (if present) into the process environment, then
@@ -60,6 +67,12 @@ func Load() (*Config, error) {
 
 	if cfg.Port == "" {
 		cfg.Port = "8080"
+	}
+
+	if origins := os.Getenv("CORS_ALLOWED_ORIGINS"); origins != "" {
+		cfg.AllowedOrigins = strings.Split(origins, ",")
+	} else {
+		cfg.AllowedOrigins = []string{"*"}
 	}
 
 	required := map[string]string{

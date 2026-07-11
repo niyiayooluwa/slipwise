@@ -1,0 +1,490 @@
+package service_test
+
+import (
+	"context"
+	"errors"
+	"sync"
+	"testing"
+	"time"
+
+	"sportloga/internal/auth"
+	"sportloga/internal/auth/service"
+	db "sportloga/internal/db/generated"
+
+	"github.com/google/uuid"
+)
+
+// --- fakeRepo: in-memory stand-in for repository.AuthRepository ---
+//
+// This is what the "designed to be testable" comment in service.go's
+// package doc was actually for. No Postgres, no network — just maps.
+
+var errNotFound = errors.New("not found")
+
+type fakeRepo struct {
+	mu            sync.Mutex
+	usersByEmail  map[string]db.User
+	usersByID     map[uuid.UUID]db.User
+	latestOTP     map[string]db.OtpCode // key: email + "|" + purpose
+	refreshTokens map[string]db.RefreshToken
+}
+
+func newFakeRepo() *fakeRepo {
+	return &fakeRepo{
+		usersByEmail:  map[string]db.User{},
+		usersByID:     map[uuid.UUID]db.User{},
+		latestOTP:     map[string]db.OtpCode{},
+		refreshTokens: map[string]db.RefreshToken{},
+	}
+}
+
+func (f *fakeRepo) CreateUser(_ context.Context, firstName, lastName, email, passwordHash string) (db.User, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	u := db.User{ID: uuid.New(), FirstName: &firstName, LastName: &lastName, Email: email, PasswordHash: passwordHash, CreatedAt: time.Now()}
+	f.usersByEmail[email] = u
+	f.usersByID[u.ID] = u
+	return u, nil
+}
+
+func (f *fakeRepo) GetUserByEmail(_ context.Context, email string) (db.User, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	u, ok := f.usersByEmail[email]
+	if !ok {
+		return db.User{}, errNotFound
+	}
+	return u, nil
+}
+
+func (f *fakeRepo) GetUserByID(_ context.Context, id uuid.UUID) (db.User, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	u, ok := f.usersByID[id]
+	if !ok {
+		return db.User{}, errNotFound
+	}
+	return u, nil
+}
+
+func (f *fakeRepo) MarkEmailVerified(_ context.Context, userID uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	u, ok := f.usersByID[userID]
+	if !ok {
+		return errNotFound
+	}
+	now := time.Now()
+	u.EmailVerifiedAt = &now
+	f.usersByID[userID] = u
+	f.usersByEmail[u.Email] = u
+	return nil
+}
+
+func (f *fakeRepo) CreateOTP(_ context.Context, email, codeHash, purpose string, expiresAt time.Time) (db.OtpCode, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	o := db.OtpCode{
+		ID:        uuid.New(),
+		Email:     email,
+		CodeHash:  codeHash,
+		Purpose:   purpose,
+		ExpiresAt: expiresAt,
+		CreatedAt: time.Now(),
+	}
+	f.latestOTP[email+"|"+purpose] = o
+	return o, nil
+}
+
+func (f *fakeRepo) GetLatestOTP(_ context.Context, email, purpose string) (db.OtpCode, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	o, ok := f.latestOTP[email+"|"+purpose]
+	if !ok || o.UsedAt != nil {
+		return db.OtpCode{}, errNotFound
+	}
+	return o, nil
+}
+
+func (f *fakeRepo) IncrementOTPAttempts(_ context.Context, otpID uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for k, o := range f.latestOTP {
+		if o.ID == otpID {
+			o.AttemptCount++
+			f.latestOTP[k] = o
+			return nil
+		}
+	}
+	return errNotFound
+}
+
+func (f *fakeRepo) MarkOTPUsed(_ context.Context, otpID uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for k, o := range f.latestOTP {
+		if o.ID == otpID {
+			now := time.Now()
+			o.UsedAt = &now
+			f.latestOTP[k] = o
+			return nil
+		}
+	}
+	return errNotFound
+}
+
+func (f *fakeRepo) CreateRefreshToken(_ context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) (db.RefreshToken, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	t := db.RefreshToken{ID: uuid.New(), UserID: userID, TokenHash: tokenHash, ExpiresAt: expiresAt, CreatedAt: time.Now()}
+	f.refreshTokens[tokenHash] = t
+	return t, nil
+}
+
+func (f *fakeRepo) GetRefreshToken(_ context.Context, tokenHash string) (db.RefreshToken, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	t, ok := f.refreshTokens[tokenHash]
+	if !ok {
+		return db.RefreshToken{}, errNotFound
+	}
+	return t, nil
+}
+
+func (f *fakeRepo) RevokeRefreshToken(_ context.Context, id uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for k, t := range f.refreshTokens {
+		if t.ID == id {
+			now := time.Now()
+			t.RevokedAt = &now
+			f.refreshTokens[k] = t
+			return nil
+		}
+	}
+	return errNotFound
+}
+
+// --- fakeMailer: captures sends instead of calling Resend ---
+
+type fakeMailer struct {
+	mu   sync.Mutex
+	sent []sentOTP
+}
+
+type sentOTP struct {
+	email, code string
+}
+
+func (m *fakeMailer) SendOTP(_ context.Context, email, code string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.sent = append(m.sent, sentOTP{email: email, code: code})
+	return nil
+}
+
+func (m *fakeMailer) lastCode(t *testing.T) string {
+	t.Helper()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.sent) == 0 {
+		t.Fatal("expected an OTP to have been sent, none were")
+	}
+	return m.sent[len(m.sent)-1].code
+}
+
+// --- test setup helper ---
+
+func newTestService() (*service.AuthService, *fakeRepo, *fakeMailer) {
+	repo := newFakeRepo()
+	mailer := &fakeMailer{}
+	issuer := auth.NewJWTIssuer("test-secret")
+	return service.NewAuthService(repo, issuer, mailer), repo, mailer
+}
+
+// --- Signup ---
+
+func TestSignup_Success(t *testing.T) {
+	svc, repo, mailer := newTestService()
+	ctx := context.Background()
+
+	err := svc.Signup(ctx, "John", "Doe", "new@example.com", "password123")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if _, ok := repo.usersByEmail["new@example.com"]; !ok {
+		t.Fatal("expected user row to exist after signup")
+	}
+	if len(mailer.sent) != 1 {
+		t.Fatalf("expected exactly 1 OTP sent, got %d", len(mailer.sent))
+	}
+}
+
+func TestSignup_DuplicateEmail(t *testing.T) {
+	svc, _, _ := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "dupe@example.com", "password123")
+	err := svc.Signup(ctx, "John", "Doe", "dupe@example.com", "password123")
+
+	if !errors.Is(err, service.ErrEmailAlreadyRegistered) {
+		t.Fatalf("expected ErrEmailAlreadyRegistered, got %v", err)
+	}
+}
+
+// --- Verify ---
+
+func TestVerify_Success(t *testing.T) {
+	svc, _, mailer := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "verify@example.com", "password123")
+	code := mailer.lastCode(t)
+
+	pair, err := svc.Verify(ctx, "verify@example.com", code)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if pair.AccessToken == "" || pair.RefreshToken == "" {
+		t.Fatal("expected both tokens to be populated")
+	}
+}
+
+func TestVerify_WrongCode(t *testing.T) {
+	svc, _, _ := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "wrongcode@example.com", "password123")
+
+	_, err := svc.Verify(ctx, "wrongcode@example.com", "000000")
+	if !errors.Is(err, service.ErrOTPIncorrect) {
+		t.Fatalf("expected ErrOTPIncorrect, got %v", err)
+	}
+}
+
+func TestVerify_MaxAttemptsLocksCode(t *testing.T) {
+	svc, _, _ := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "maxattempts@example.com", "password123")
+
+	// 3 wrong guesses burns the code...
+	for i := 0; i < 3; i++ {
+		_, err := svc.Verify(ctx, "maxattempts@example.com", "000000")
+		if !errors.Is(err, service.ErrOTPIncorrect) {
+			t.Fatalf("attempt %d: expected ErrOTPIncorrect, got %v", i+1, err)
+		}
+	}
+
+	// ...the 4th attempt should be locked out, not "incorrect" again,
+	// even against a guess that would otherwise be irrelevant.
+	_, err := svc.Verify(ctx, "maxattempts@example.com", "111111")
+	if !errors.Is(err, service.ErrOTPMaxAttempts) {
+		t.Fatalf("expected ErrOTPMaxAttempts after 3 failures, got %v", err)
+	}
+}
+
+func TestVerify_ExpiredCode(t *testing.T) {
+	svc, repo, mailer := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "expired@example.com", "password123")
+	code := mailer.lastCode(t)
+
+	// Reach into the fake to simulate time having passed, rather than
+	// sleeping 10 real minutes in a test.
+	repo.mu.Lock()
+	otp := repo.latestOTP["expired@example.com|signup_verify"]
+	otp.ExpiresAt = time.Now().Add(-1 * time.Minute)
+	repo.latestOTP["expired@example.com|signup_verify"] = otp
+	repo.mu.Unlock()
+
+	_, err := svc.Verify(ctx, "expired@example.com", code)
+	if !errors.Is(err, service.ErrOTPExpired) {
+		t.Fatalf("expected ErrOTPExpired, got %v", err)
+	}
+}
+
+// --- Login ---
+
+func TestLogin_Success(t *testing.T) {
+	svc, _, mailer := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "login@example.com", "password123")
+	code := mailer.lastCode(t)
+	_, _ = svc.Verify(ctx, "login@example.com", code)
+
+	pair, err := svc.Login(ctx, "login@example.com", "password123")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if pair.AccessToken == "" {
+		t.Fatal("expected an access token")
+	}
+}
+
+func TestLogin_WrongPassword(t *testing.T) {
+	svc, _, mailer := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "wrongpw@example.com", "password123")
+	code := mailer.lastCode(t)
+	_, _ = svc.Verify(ctx, "wrongpw@example.com", code)
+
+	_, err := svc.Login(ctx, "wrongpw@example.com", "not-the-password")
+	if !errors.Is(err, service.ErrInvalidCredentials) {
+		t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+	}
+}
+
+func TestLogin_UnknownEmail_SameErrorAsWrongPassword(t *testing.T) {
+	svc, _, _ := newTestService()
+	ctx := context.Background()
+
+	// This is the anti-enumeration guarantee documented in errors.go —
+	// asserting it here means a future refactor that breaks it fails
+	// a test, not just a code review.
+	_, err := svc.Login(ctx, "never-signed-up@example.com", "whatever123")
+	if !errors.Is(err, service.ErrInvalidCredentials) {
+		t.Fatalf("expected ErrInvalidCredentials for unknown email, got %v", err)
+	}
+}
+
+func TestLogin_UnverifiedAccount(t *testing.T) {
+	svc, _, _ := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "unverified@example.com", "password123")
+	// deliberately never call Verify
+
+	_, err := svc.Login(ctx, "unverified@example.com", "password123")
+	if !errors.Is(err, service.ErrEmailNotVerified) {
+		t.Fatalf("expected ErrEmailNotVerified, got %v", err)
+	}
+}
+
+// --- Refresh ---
+
+func TestRefresh_RotatesToken(t *testing.T) {
+	svc, _, mailer := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "refresh@example.com", "password123")
+	code := mailer.lastCode(t)
+	firstPair, _ := svc.Verify(ctx, "refresh@example.com", code)
+
+	secondPair, err := svc.Refresh(ctx, firstPair.RefreshToken)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if secondPair.RefreshToken == firstPair.RefreshToken {
+		t.Fatal("expected a new refresh token, got the same one back")
+	}
+
+	// The old token should now be dead — this is the rotation
+	// guarantee, not just "a new one also works."
+	_, err = svc.Refresh(ctx, firstPair.RefreshToken)
+	if !errors.Is(err, service.ErrRefreshTokenInvalid) {
+		t.Fatalf("expected old refresh token to be invalid after rotation, got %v", err)
+	}
+}
+
+func TestRefresh_UnknownToken(t *testing.T) {
+	svc, _, _ := newTestService()
+	ctx := context.Background()
+
+	_, err := svc.Refresh(ctx, "not-a-real-token")
+	if !errors.Is(err, service.ErrRefreshTokenInvalid) {
+		t.Fatalf("expected ErrRefreshTokenInvalid, got %v", err)
+	}
+}
+
+// --- Logout ---
+
+func TestLogout_IsIdempotent(t *testing.T) {
+	svc, _, mailer := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "logout@example.com", "password123")
+	code := mailer.lastCode(t)
+	pair, _ := svc.Verify(ctx, "logout@example.com", code)
+
+	if err := svc.Logout(ctx, pair.RefreshToken); err != nil {
+		t.Fatalf("expected no error on first logout, got %v", err)
+	}
+	// Logging out again with the same (now-revoked) token should still
+	// succeed silently — that's the documented contract.
+	if err := svc.Logout(ctx, pair.RefreshToken); err != nil {
+		t.Fatalf("expected no error on second logout, got %v", err)
+	}
+	// Logging out with a token that never existed should also succeed.
+	if err := svc.Logout(ctx, "never-existed"); err != nil {
+		t.Fatalf("expected no error for unknown token, got %v", err)
+	}
+}
+
+// --- ResendOTP ---
+
+func TestResendOTP_Success(t *testing.T) {
+	svc, repo, mailer := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "resend@example.com", "password123")
+
+	// Simulate the cooldown window having already passed.
+	repo.mu.Lock()
+	otp := repo.latestOTP["resend@example.com|signup_verify"]
+	otp.CreatedAt = time.Now().Add(-2 * time.Minute)
+	repo.latestOTP["resend@example.com|signup_verify"] = otp
+	repo.mu.Unlock()
+
+	err := svc.ResendOTP(ctx, "resend@example.com")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(mailer.sent) != 2 {
+		t.Fatalf("expected 2 total sends (signup + resend), got %d", len(mailer.sent))
+	}
+}
+
+func TestResendOTP_Cooldown(t *testing.T) {
+	svc, _, mailer := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "cooldown@example.com", "password123")
+	// No time manipulation — the OTP from Signup was just created, so
+	// this should still be inside the 60s cooldown window.
+
+	err := svc.ResendOTP(ctx, "cooldown@example.com")
+	if !errors.Is(err, service.ErrOTPCooldown) {
+		t.Fatalf("expected ErrOTPCooldown, got %v", err)
+	}
+	if len(mailer.sent) != 1 {
+		t.Fatalf("expected no additional send during cooldown, got %d total", len(mailer.sent))
+	}
+}
+
+func TestResendOTP_UnknownEmail(t *testing.T) {
+	svc, _, _ := newTestService()
+	ctx := context.Background()
+
+	err := svc.ResendOTP(ctx, "never-signed-up@example.com")
+	if !errors.Is(err, service.ErrUserNotFound) {
+		t.Fatalf("expected ErrUserNotFound, got %v", err)
+	}
+}
+
+func TestResendOTP_AlreadyVerified(t *testing.T) {
+	svc, _, mailer := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "alreadyverified@example.com", "password123")
+	code := mailer.lastCode(t)
+	_, _ = svc.Verify(ctx, "alreadyverified@example.com", code)
+
+	err := svc.ResendOTP(ctx, "alreadyverified@example.com")
+	if !errors.Is(err, service.ErrAlreadyVerified) {
+		t.Fatalf("expected ErrAlreadyVerified, got %v", err)
+	}
+}

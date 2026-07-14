@@ -39,11 +39,22 @@ func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string) c
 
 	r.Use(middleware.RequestID)
 
-	// Resolves the true client IP from standard proxy headers (X-Forwarded-For or X-Real-IP).
-	// This ensures that rate limiting and logging work correctly when the app is deployed
-	// behind a reverse proxy (e.g., Nginx, Cloudflare, AWS ALB) instead of rate-limiting
-	// the proxy's IP address.
-	r.Use(middleware.RealIP)
+	// --- CLIENT IP RESOLUTION ---
+	// Choose ONE of the following based on how you deploy this server.
+	// This is critical for preventing IP spoofing and ensuring rate-limiting works.
+
+	// Option 1: Direct Internet Connection (Default)
+	// Use this if your Go app is directly exposed to the internet with NO reverse proxy.
+	r.Use(middleware.ClientIPFromRemoteAddr)
+
+	// Option 2: Standard Reverse Proxy (Nginx, Caddy, AWS ALB, etc.)
+	// Uncomment this if you put Nginx/Caddy in front of the Go app.
+	// Make sure your proxy is configured to strip spoofed X-Forwarded-For headers!
+	// r.Use(middleware.ClientIPFromHeader("X-Forwarded-For"))
+
+	// Option 3: Cloudflare CDN
+	// Uncomment this if you route your API through Cloudflare.
+	// r.Use(middleware.ClientIPFromHeader("CF-Connecting-IP"))
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)

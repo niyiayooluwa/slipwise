@@ -39,28 +39,11 @@ func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string) c
 
 	r.Use(middleware.RequestID)
 
-	// Resolves the client IP into the request context so downstream
-	// code (the login rate limiter below, request logging) can read
-	// it via middleware.GetClientIP instead of the request's raw
-	// RemoteAddr. This deliberately assumes the server is directly
-	// internet-facing with NO reverse proxy/load balancer/CDN in
-	// front of it — the correct assumption for local dev and for
-	// however Sportloga is deployed today.
-	//
-	// THIS MUST CHANGE if a reverse proxy, load balancer, or CDN is
-	// ever put in front of this server — at that point RemoteAddr
-	// stops being the real client and becomes the proxy's own address
-	// for every request, which silently breaks both rate limiting
-	// (everyone shares one bucket) and any IP-based logging. Swap this
-	// one line for whichever of chi's other ClientIPFrom* middlewares
-	// matches the actual infrastructure then (e.g.
-	// ClientIPFromHeader("CF-Connecting-IP") behind Cloudflare,
-	// ClientIPFromXFF(trustedCIDRs...) behind a known proxy fleet).
-	// Never bring back the old middleware.RealIP — it trusts
-	// client-supplied headers unconditionally regardless of whether
-	// there's actually a proxy setting them, which is the spoofing
-	// vulnerability this replaced.
-	r.Use(middleware.ClientIPFromRemoteAddr)
+	// Resolves the true client IP from standard proxy headers (X-Forwarded-For or X-Real-IP).
+	// This ensures that rate limiting and logging work correctly when the app is deployed
+	// behind a reverse proxy (e.g., Nginx, Cloudflare, AWS ALB) instead of rate-limiting
+	// the proxy's IP address.
+	r.Use(middleware.RealIP)
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)

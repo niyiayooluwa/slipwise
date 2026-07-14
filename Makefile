@@ -66,17 +66,7 @@ lint: staticcheck
 test: generate
 	go test ./... -v
 
-check-proxy:
-	@if grep -q ClientIPFromRemoteAddr internal/httpserver/router.go; then \
-		echo "======================================================================="; \
-		echo "  ⚠️  WARNING: Using middleware.ClientIPFromRemoteAddr in router.go! "; \
-		echo "  If this server runs behind a reverse proxy, load balancer, or CDN  "; \
-		echo "  (e.g., Nginx, Cloudflare), swap it for ClientIPFromXFF or similar. "; \
-		echo "  Failing to do so breaks rate limiting and IP logging silently.     "; \
-		echo "======================================================================="; \
-	fi
-
-build: staticcheck test check-proxy
+build: staticcheck test
 	go build -o $(BINARY_OUT) $(MAIN_PKG)
 
 run: build

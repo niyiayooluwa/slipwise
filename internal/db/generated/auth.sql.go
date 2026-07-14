@@ -76,7 +76,7 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (first_name, last_name, email, password_hash)
 VALUES ($1, $2, $3, $4)
-RETURNING id, first_name, last_name, email, password_hash, email_verified_at, created_at, updated_at
+RETURNING id, first_name, last_name, email, password_hash, email_verified_at, created_at, updated_at, is_admin, is_punter, is_suspended
 `
 
 type CreateUserParams struct {
@@ -103,6 +103,9 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsAdmin,
+		&i.IsPunter,
+		&i.IsSuspended,
 	)
 	return i, err
 }
@@ -155,7 +158,7 @@ func (q *Queries) GetRefreshToken(ctx context.Context, tokenHash string) (Refres
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, first_name, last_name, email, password_hash, email_verified_at, created_at, updated_at FROM users WHERE email = $1
+SELECT id, first_name, last_name, email, password_hash, email_verified_at, created_at, updated_at, is_admin, is_punter, is_suspended FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -170,12 +173,15 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsAdmin,
+		&i.IsPunter,
+		&i.IsSuspended,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, first_name, last_name, email, password_hash, email_verified_at, created_at, updated_at FROM users WHERE id = $1
+SELECT id, first_name, last_name, email, password_hash, email_verified_at, created_at, updated_at, is_admin, is_punter, is_suspended FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -190,6 +196,9 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.EmailVerifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsAdmin,
+		&i.IsPunter,
+		&i.IsSuspended,
 	)
 	return i, err
 }

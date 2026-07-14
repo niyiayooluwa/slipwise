@@ -11,13 +11,20 @@ import (
 )
 
 type Querier interface {
+	CreateBookingCode(ctx context.Context, arg CreateBookingCodeParams) (BookingCode, error)
+	CreateBookingSelection(ctx context.Context, arg CreateBookingSelectionParams) (BookingSelection, error)
+	CreateMatch(ctx context.Context, arg CreateMatchParams) (Match, error)
 	CreateOTP(ctx context.Context, arg CreateOTPParams) (OtpCode, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	CreateUserTicket(ctx context.Context, arg CreateUserTicketParams) (UserTicket, error)
+	EvaluateBucket(ctx context.Context, arg EvaluateBucketParams) ([]uuid.UUID, error)
+	GetBookingCodeByCode(ctx context.Context, code string) (BookingCode, error)
 	GetLatestOTP(ctx context.Context, arg GetLatestOTPParams) (OtpCode, error)
 	GetRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	GetUsersForBookingCodes(ctx context.Context, dollar_1 []uuid.UUID) ([]uuid.UUID, error)
 	IncrementOTPAttempts(ctx context.Context, id uuid.UUID) error
 	MarkEmailVerified(ctx context.Context, id uuid.UUID) error
 	MarkOTPUsed(ctx context.Context, id uuid.UUID) error

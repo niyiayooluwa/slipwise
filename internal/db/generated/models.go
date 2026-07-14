@@ -10,6 +10,29 @@ import (
 	"github.com/google/uuid"
 )
 
+type BookingCode struct {
+	ID     uuid.UUID `json:"id"`
+	Bookie string    `json:"bookie"`
+	Code   string    `json:"code"`
+	Status string    `json:"status"`
+}
+
+type BookingSelection struct {
+	ID            uuid.UUID `json:"id"`
+	BookingCodeID uuid.UUID `json:"booking_code_id"`
+	MatchID       uuid.UUID `json:"match_id"`
+	MarketType    string    `json:"market_type"`
+	Selection     string    `json:"selection"`
+	Status        string    `json:"status"`
+}
+
+type Match struct {
+	ID       uuid.UUID `json:"id"`
+	HomeTeam string    `json:"home_team"`
+	AwayTeam string    `json:"away_team"`
+	Status   string    `json:"status"`
+}
+
 type OtpCode struct {
 	ID           uuid.UUID  `json:"id"`
 	Email        string     `json:"email"`
@@ -40,4 +63,13 @@ type User struct {
 	EmailVerifiedAt *time.Time `json:"email_verified_at"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
+	IsAdmin         bool       `json:"is_admin"`
+	IsPunter        bool       `json:"is_punter"`
+	IsSuspended     bool       `json:"is_suspended"`
+}
+
+type UserTicket struct {
+	ID            uuid.UUID `json:"id"`
+	UserID        uuid.UUID `json:"user_id"`
+	BookingCodeID uuid.UUID `json:"booking_code_id"`
 }

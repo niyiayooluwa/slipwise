@@ -49,8 +49,17 @@ func (h *AuthHandler) Signup(c *echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid body"})
 	}
-	if req.FirstName == "" || req.LastName == "" || req.Email == "" || len(req.Password) < 8 {
-		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "first name, last name, and email required, password min 8 chars"})
+	if req.FirstName == "" {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "first name is required"})
+	}
+	if req.LastName == "" {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "last name is required"})
+	}
+	if req.Email == "" {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "email is required"})
+	}
+	if len(req.Password) < 8 {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "password must be at least 8 characters"})
 	}
 
 	err := h.svc.Signup(c.Request().Context(), req.FirstName, req.LastName, req.Email, req.Password)

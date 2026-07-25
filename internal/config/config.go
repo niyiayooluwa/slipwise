@@ -44,6 +44,14 @@ type Config struct {
 	// a comma-separated list once there's a real frontend origin to
 	// restrict to.
 	AllowedOrigins []string
+	// TrustedProxyCIDRs is the list of CIDR ranges representing trusted
+	// reverse proxies (e.g. "10.0.0.0/8,172.16.0.0/12"). When empty the
+	// server is assumed to be directly on the internet and r.RemoteAddr is
+	// used as the client IP. When set, X-Forwarded-For is read and the
+	// header is trusted only from IPs that fall inside one of these ranges.
+	// Changing deployment topology never requires a code change — only an
+	// update to this env var.
+	TrustedProxyCIDRs []string
 }
 
 // Load reads .env (if present) into the process environment, then
@@ -73,6 +81,10 @@ func Load() (*Config, error) {
 		cfg.AllowedOrigins = strings.Split(origins, ",")
 	} else {
 		cfg.AllowedOrigins = []string{"*"}
+	}
+
+	if cidrs := os.Getenv("TRUSTED_PROXY_CIDRS"); cidrs != "" {
+		cfg.TrustedProxyCIDRs = strings.Split(cidrs, ",")
 	}
 
 	required := map[string]string{

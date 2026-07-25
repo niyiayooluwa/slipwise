@@ -8,7 +8,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -16,11 +15,12 @@ import (
 	"sportloga/internal/apitypes"
 	"sportloga/internal/auth/model"
 	"sportloga/internal/auth/service"
-	"sportloga/internal/response"
+
+	"github.com/labstack/echo/v5"
 )
 
 // AuthHandler exposes signup/verify/login/refresh/logout as
-// http.HandlerFuncs, backed by an AuthService.
+// echo.HandlerFuncs, backed by an AuthService.
 type AuthHandler struct {
 	svc *service.AuthService
 }
@@ -44,28 +44,26 @@ func NewAuthHandler(svc *service.AuthService) *AuthHandler {
 // @Failure      409 {object} apitypes.ErrorResponse "email already registered"
 // @Failure      500 {object} apitypes.ErrorResponse "hashing or DB failure"
 // @Router       /auth/signup [post]
-func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Signup(c *echo.Context) error {
 	var req model.SignupRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid body")
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid body"})
 	}
 	if req.FirstName == "" || req.LastName == "" || req.Email == "" || len(req.Password) < 8 {
-		response.WriteError(w, http.StatusBadRequest, "first name, last name, and email required, password min 8 chars")
-		return
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "first name, last name, and email required, password min 8 chars"})
 	}
 
-	err := h.svc.Signup(r.Context(), req.FirstName, req.LastName, req.Email, req.Password)
+	err := h.svc.Signup(c.Request().Context(), req.FirstName, req.LastName, req.Email, req.Password)
 	switch {
 	case err == nil:
-		response.WriteJSON(w, http.StatusCreated, model.SignupResponse{
+		return c.JSON(http.StatusCreated, model.SignupResponse{
 			Message: "account created, check your email for a verification code",
 		})
 	case errors.Is(err, service.ErrEmailAlreadyRegistered):
-		response.WriteError(w, http.StatusConflict, err.Error())
+		return c.JSON(http.StatusConflict, apitypes.ErrorResponse{Error: err.Error()})
 	default:
 		slog.Error("auth handler error", "endpoint", "signup", "error", err)
-		response.WriteError(w, http.StatusInternalServerError, "internal error")
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
 	}
 }
 
@@ -87,27 +85,26 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 // @Failure      429 {object} apitypes.ErrorResponse "too many wrong attempts against this code"
 // @Failure      500 {object} apitypes.ErrorResponse "DB or token-issuing failure"
 // @Router       /auth/verify [post]
-func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Verify(c *echo.Context) error {
 	var req model.VerifyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid body")
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid body"})
 	}
 
-	pair, err := h.svc.Verify(r.Context(), req.Email, req.Code)
+	pair, err := h.svc.Verify(c.Request().Context(), req.Email, req.Code)
 	switch {
 	case err == nil:
-		response.WriteJSON(w, http.StatusOK, model.TokenPairResponse{
+		return c.JSON(http.StatusOK, model.TokenPairResponse{
 			AccessToken:  pair.AccessToken,
 			RefreshToken: pair.RefreshToken,
 		})
 	case errors.Is(err, service.ErrOTPNotFound), errors.Is(err, service.ErrOTPExpired), errors.Is(err, service.ErrOTPIncorrect):
-		response.WriteError(w, http.StatusBadRequest, err.Error())
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: err.Error()})
 	case errors.Is(err, service.ErrOTPMaxAttempts):
-		response.WriteError(w, http.StatusTooManyRequests, err.Error())
+		return c.JSON(http.StatusTooManyRequests, apitypes.ErrorResponse{Error: err.Error()})
 	default:
 		slog.Error("auth handler error", "endpoint", "verify", "error", err)
-		response.WriteError(w, http.StatusInternalServerError, "internal error")
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
 	}
 }
 
@@ -128,27 +125,26 @@ func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
 // @Failure      403 {object} apitypes.ErrorResponse "email not verified"
 // @Failure      500 {object} apitypes.ErrorResponse "DB or token-issuing failure"
 // @Router       /auth/login [post]
-func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Login(c *echo.Context) error {
 	var req model.LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid body")
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid body"})
 	}
 
-	pair, err := h.svc.Login(r.Context(), req.Email, req.Password)
+	pair, err := h.svc.Login(c.Request().Context(), req.Email, req.Password)
 	switch {
 	case err == nil:
-		response.WriteJSON(w, http.StatusOK, model.TokenPairResponse{
+		return c.JSON(http.StatusOK, model.TokenPairResponse{
 			AccessToken:  pair.AccessToken,
 			RefreshToken: pair.RefreshToken,
 		})
 	case errors.Is(err, service.ErrInvalidCredentials):
-		response.WriteError(w, http.StatusUnauthorized, err.Error())
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: err.Error()})
 	case errors.Is(err, service.ErrEmailNotVerified):
-		response.WriteError(w, http.StatusForbidden, err.Error())
+		return c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: err.Error()})
 	default:
 		slog.Error("auth handler error", "endpoint", "login", "error", err)
-		response.WriteError(w, http.StatusInternalServerError, "internal error")
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
 	}
 }
 
@@ -167,25 +163,24 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 // @Failure      401 {object} apitypes.ErrorResponse "token invalid, revoked, or expired"
 // @Failure      500 {object} apitypes.ErrorResponse "DB or token-issuing failure"
 // @Router       /auth/refresh [post]
-func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Refresh(c *echo.Context) error {
 	var req model.RefreshRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid body")
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid body"})
 	}
 
-	pair, err := h.svc.Refresh(r.Context(), req.RefreshToken)
+	pair, err := h.svc.Refresh(c.Request().Context(), req.RefreshToken)
 	switch {
 	case err == nil:
-		response.WriteJSON(w, http.StatusOK, model.TokenPairResponse{
+		return c.JSON(http.StatusOK, model.TokenPairResponse{
 			AccessToken:  pair.AccessToken,
 			RefreshToken: pair.RefreshToken,
 		})
 	case errors.Is(err, service.ErrRefreshTokenInvalid):
-		response.WriteError(w, http.StatusUnauthorized, err.Error())
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: err.Error()})
 	default:
 		slog.Error("auth handler error", "endpoint", "refresh", "error", err)
-		response.WriteError(w, http.StatusInternalServerError, "internal error")
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
 	}
 }
 
@@ -209,28 +204,27 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 // @Failure      429 {object} apitypes.ErrorResponse "resend requested too soon after the last one"
 // @Failure      500 {object} apitypes.ErrorResponse "DB or mail-provider failure"
 // @Router       /auth/resend-otp [post]
-func (h *AuthHandler) ResendOTP(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) ResendOTP(c *echo.Context) error {
 	var req model.ResendOTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid body")
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid body"})
 	}
 
-	err := h.svc.ResendOTP(r.Context(), req.Email)
+	err := h.svc.ResendOTP(c.Request().Context(), req.Email)
 	switch {
 	case err == nil:
-		response.WriteJSON(w, http.StatusOK, apitypes.MessageResponse{
+		return c.JSON(http.StatusOK, apitypes.MessageResponse{
 			Message: "a new code has been sent to your email",
 		})
 	case errors.Is(err, service.ErrUserNotFound):
-		response.WriteError(w, http.StatusNotFound, err.Error())
+		return c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: err.Error()})
 	case errors.Is(err, service.ErrAlreadyVerified):
-		response.WriteError(w, http.StatusBadRequest, err.Error())
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: err.Error()})
 	case errors.Is(err, service.ErrOTPCooldown):
-		response.WriteError(w, http.StatusTooManyRequests, err.Error())
+		return c.JSON(http.StatusTooManyRequests, apitypes.ErrorResponse{Error: err.Error()})
 	default:
 		slog.Error("auth handler error", "endpoint", "resend-otp", "error", err)
-		response.WriteError(w, http.StatusInternalServerError, "internal error")
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
 	}
 }
 
@@ -247,13 +241,12 @@ func (h *AuthHandler) ResendOTP(w http.ResponseWriter, r *http.Request) {
 // @Success      200 {object} apitypes.MessageResponse
 // @Failure      400 {object} apitypes.ErrorResponse "invalid body"
 // @Router       /auth/logout [post]
-func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Logout(c *echo.Context) error {
 	var req model.LogoutRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, "invalid body")
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid body"})
 	}
 
-	_ = h.svc.Logout(r.Context(), req.RefreshToken)
-	response.WriteJSON(w, http.StatusOK, apitypes.MessageResponse{Message: "logged out"})
+	_ = h.svc.Logout(c.Request().Context(), req.RefreshToken)
+	return c.JSON(http.StatusOK, apitypes.MessageResponse{Message: "logged out"})
 }

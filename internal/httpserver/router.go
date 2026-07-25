@@ -1,23 +1,20 @@
-// Package httpserver holds cross-domain HTTP plumbing: the chi router
-// and route wiring for every domain. Shared response helpers
-// (WriteJSON/WriteError) live in internal/response instead of here —
-// this package imports domain handler packages to mount their routes,
-// so it can never also be something a handler package imports, or
-// you get an import cycle.
+// Package httpserver holds cross-domain HTTP plumbing: the Echo router
+// and route wiring for every domain.
 package httpserver
 
 import (
-	"errors"
+	"log/slog"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"sportloga/internal/auth"
 	authhandler "sportloga/internal/auth/handler"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -30,101 +27,94 @@ type Handlers struct {
 	// Notifications *notificationshandler.NotificationsHandler
 }
 
-// NewRouter builds the full chi router: base middleware, CORS,
-// swagger UI, and every domain's routes mounted under its own prefix.
-// Route wiring lives here and only here — main.go should never call
-// r.Post/r.Get directly.
-func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string) chi.Router {
-	r := chi.NewRouter()
+// NewRouter builds the full Echo router. trustedProxyCIDRs controls client-IP
+// resolution: empty → direct internet (use RemoteAddr); populated → read
+// X-Forwarded-For, trusting only the listed CIDR ranges as proxy hops. No
+// code change is needed when switching between deployment topologies — only
+// the TRUSTED_PROXY_CIDRS env var needs updating.
+func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string, trustedProxyCIDRs []string) *echo.Echo {
+	e := echo.New()
+	//e.HideBanner = true
+	e.IPExtractor = buildIPExtractor(trustedProxyCIDRs)
 
-	r.Use(middleware.RequestID)
-
-	// --- CLIENT IP RESOLUTION ---
-	// Choose ONE of the following based on how you deploy this server.
-	// This is critical for preventing IP spoofing and ensuring rate-limiting works.
-
-	// Option 1: Direct Internet Connection (Default)
-	// Use this if your Go app is directly exposed to the internet with NO reverse proxy.
-	r.Use(middleware.ClientIPFromRemoteAddr)
-
-	// Option 2: Standard Reverse Proxy (Nginx, Caddy, AWS ALB, etc.)
-	// Uncomment this if you put Nginx/Caddy in front of the Go app.
-	// Make sure your proxy is configured to strip spoofed X-Forwarded-For headers!
-	// r.Use(middleware.ClientIPFromHeader("X-Forwarded-For"))
-
-	// Option 3: Cloudflare CDN
-	// Uncomment this if you route your API through Cloudflare.
-	// r.Use(middleware.ClientIPFromHeader("CF-Connecting-IP"))
-
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-
-	// AllowCredentials is deliberately false: pairing it with a "*"
-	// origin (the local-dev default) is invalid per the CORS spec and
-	// browsers reject it outright. Once AllowedOrigins is locked down
-	// to real frontend origins (not "*"), this can flip to true if
-	// cookie-based auth is ever added — Bearer tokens in headers don't
-	// need it.
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   allowedOrigins,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+	e.Use(middleware.RequestID())
+	e.Use(middleware.RequestLogger())
+	e.Use(middleware.Recover())
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins:     allowedOrigins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type"},
 		AllowCredentials: false,
 		MaxAge:           300,
 	}))
 
-	r.Get("/swagger/*", httpSwagger.WrapHandler)
+	e.GET("/swagger/*", echo.WrapHandler(httpSwagger.WrapHandler))
 
-	r.Route("/auth", authRoutes(h.Auth))
+	authGroup := e.Group("/auth")
+	mountAuthRoutes(authGroup, h.Auth, e.IPExtractor)
 
 	// Protected routes, once a domain needs them:
-	// r.Group(func(r chi.Router) {
-	// 	r.Use(auth.RequireAuth(jwtIssuer))
-	// 	r.Route("/realtime", realtimeRoutes(h.Realtime))
-	// })
+	// protectedGroup := e.Group("")
+	// protectedGroup.Use(auth.RequireAuth(jwtIssuer))
+	// mountRealtimeRoutes(protectedGroup.Group("/realtime"), h.Realtime)
 
-	return r
+	return e
 }
 
-// authRoutes mounts every /auth endpoint. Kept in its own function
-// (rather than inline in NewRouter) so each domain's route list is
-// easy to find and diff independently as the API grows.
-func authRoutes(h *authhandler.AuthHandler) func(r chi.Router) {
-	return func(r chi.Router) {
-		r.Post("/signup", h.Signup)
-		r.Post("/verify", h.Verify)
-		r.Post("/resend-otp", h.ResendOTP)
+// mountAuthRoutes registers all /auth endpoints.
+// The IPExtractor is passed through so clientIPKey uses the same
+// proxy-aware IP resolution as the rest of the server.
+func mountAuthRoutes(g *echo.Group, h *authhandler.AuthHandler, extractor echo.IPExtractor) {
+	loginRateLimit := echo.WrapMiddleware(
+		httprate.LimitBy(5, time.Minute, clientIPKey(extractor)),
+	)
 
-		// Login gets its own rate limit, separate from the rest of
-		// auth: it's the one endpoint where a wrong guess is
-		// meaningful (a password check) and cheap to spam, unlike
-		// signup/verify/resend which already have their own limits
-		// (unique email, OTP attempt count, resend cooldown). 5
-		// requests/minute per resolved client IP is generous for a
-		// real user mistyping a password, punishing for a
-		// brute-force script.
-		r.With(httprate.LimitBy(5, time.Minute, clientIPKey)).Post("/login", h.Login)
-
-		r.Post("/refresh", h.Refresh)
-		r.Post("/logout", h.Logout)
-	}
+	g.POST("/signup", h.Signup)
+	g.POST("/verify", h.Verify)
+	g.POST("/resend-otp", h.ResendOTP)
+	g.POST("/login", h.Login, loginRateLimit)
+	g.POST("/refresh", h.Refresh)
+	g.POST("/logout", h.Logout)
 }
 
-// clientIPKey is the rate-limit key function for login: it reads the
-// IP that ClientIPFromRemoteAddr already resolved (see NewRouter) and
-// canonicalizes it via httprate.CanonicalizeIP, which buckets IPv6
-// clients by /64 rather than by exact address — otherwise an IPv6
-// client with a delegated /64 could rotate its address per request
-// (trivial via SLAAC) and get a fresh rate-limit bucket every time,
-// defeating the limit entirely. If no client IP was resolved (should
-// not happen with ClientIPFromRemoteAddr installed, but would happen
-// if that middleware were ever removed), every request falls into one
-// shared bucket — stricter than intended, not a security hole, but a
-// sign this middleware ordering broke.
-func clientIPKey(r *http.Request) (string, error) {
-	ip := middleware.GetClientIP(r.Context())
-	if ip == "" {
-		return "", errors.New("no client ip resolved on request context")
+// buildIPExtractor returns the correct Echo IPExtractor for the given
+// list of trusted-proxy CIDR strings.
+//   - Empty list → ExtractIPDirect: uses r.RemoteAddr only, ignores headers.
+//     Safe for servers directly on the internet.
+//   - Non-empty list → ExtractIPFromXFFHeader with a TrustIPRange option per
+//     CIDR. Echo walks X-Forwarded-For right-to-left, skipping trusted hops,
+//     and returns the first untrusted (client) IP.
+//     Safe behind Nginx, Caddy, ALB, or Cloudflare — controlled entirely by
+//     the TRUSTED_PROXY_CIDRS env var, no code change needed.
+func buildIPExtractor(cidrs []string) echo.IPExtractor {
+	if len(cidrs) == 0 {
+		return echo.ExtractIPDirect()
 	}
-	return httprate.CanonicalizeIP(ip), nil
+	opts := make([]echo.TrustOption, 0, len(cidrs))
+	for _, cidr := range cidrs {
+		_, network, err := net.ParseCIDR(strings.TrimSpace(cidr))
+		if err != nil {
+			// Log malformed CIDRs at startup but don't crash — fall back to
+			// treating them as absent so the server still starts.
+			slog.Warn("TRUSTED_PROXY_CIDRS: skipping invalid CIDR", "cidr", cidr, "error", err)
+			continue
+		}
+		opts = append(opts, echo.TrustIPRange(network))
+	}
+	if len(opts) == 0 {
+		return echo.ExtractIPDirect()
+	}
+	return echo.ExtractIPFromXFFHeader(opts...)
+}
+
+// clientIPKey returns an httprate KeyFunc that uses the same IPExtractor as
+// the Echo instance, so rate-limiting always sees the same client IP as the
+// rest of the request pipeline — whether direct or behind a proxy.
+func clientIPKey(extractor echo.IPExtractor) httprate.KeyFunc {
+	return func(r *http.Request) (string, error) {
+		ip := extractor(r)
+		// Canonicalize IPv6 by /64 prefix so a client rotating SLAAC
+		// addresses within the same delegation can't escape the rate limit.
+		return httprate.CanonicalizeIP(ip), nil
+	}
 }

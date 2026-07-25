@@ -11,9 +11,10 @@
 package auth
 
 import (
-	"context"
 	"net/http"
 	"strings"
+
+	"github.com/labstack/echo/v5"
 )
 
 // ctxKey is an unexported type for context keys, per the standard Go
@@ -32,24 +33,23 @@ const UserIDKey ctxKey = "user_id"
 // that's a separate middleware layered on top for routes that need
 // it (e.g. admin-only endpoints), so a plain authenticated route
 // doesn't pay for a permissions lookup it doesn't need.
-func RequireAuth(issuer *JWTIssuer) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			h := r.Header.Get("Authorization")
+func RequireAuth(issuer *JWTIssuer) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			h := c.Request().Header.Get("Authorization")
 			if !strings.HasPrefix(h, "Bearer ") {
-				http.Error(w, `{"error":"missing bearer token"}`, http.StatusUnauthorized)
-				return
+				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "missing bearer token"})
 			}
 			token := strings.TrimPrefix(h, "Bearer ")
 
 			claims, err := issuer.Verify(token)
 			if err != nil {
-				http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
-				return
+				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid or expired token"})
 			}
 
-			ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
+			// Store user ID in Echo's per-request store (faster than context.WithValue)
+			c.Set(string(UserIDKey), claims.UserID)
+			return next(c)
+		}
 	}
 }

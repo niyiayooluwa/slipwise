@@ -70,7 +70,7 @@ func main() {
 		Auth: authH,
 	}
 
-	r := httpserver.NewRouter(handlers, jwtIssuer, cfg.AllowedOrigins)
+	r := httpserver.NewRouter(handlers, jwtIssuer, cfg.AllowedOrigins, cfg.TrustedProxyCIDRs)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,

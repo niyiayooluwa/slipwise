@@ -1,5 +1,6 @@
 .env
 logs.json
+/ai
 .env.local
 docs/
 *.exe

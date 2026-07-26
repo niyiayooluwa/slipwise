@@ -80,3 +80,9 @@ type LogoutRequest struct {
 // Note: generic MessageResponse and ErrorResponse live in
 // internal/apitypes, not here — they're cross-domain shapes, not
 // auth-specific ones. See that package for both.
+
+// OAuthLoginRequest contains the payload required to login/signup via an OAuth provider.
+type OAuthLoginRequest struct {
+	// IDToken is the JWT issued by the provider (e.g., Google or Apple).
+	IDToken string `json:"id_token" validate:"required"`
+} // @name OAuthLoginRequest

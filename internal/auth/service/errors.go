@@ -12,6 +12,10 @@ var ErrEmailAlreadyRegistered = errors.New("email already registered")
 // are registered. Maps to HTTP 401.
 var ErrInvalidCredentials = errors.New("invalid email or password")
 
+// ErrOAuthAccount is returned by Login when a user tries to sign in
+// with an email/password but the account was created using OAuth.
+var ErrOAuthAccount = errors.New("this account was created via OAuth, please use Google/Apple to sign in")
+
 // ErrEmailNotVerified is returned by Login when the account exists and
 // the password is correct, but signup OTP verification was never
 // completed. Maps to HTTP 403.

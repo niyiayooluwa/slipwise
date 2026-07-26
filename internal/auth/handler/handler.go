@@ -149,6 +149,8 @@ func (h *AuthHandler) Login(c *echo.Context) error {
 		})
 	case errors.Is(err, service.ErrInvalidCredentials):
 		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: err.Error()})
+	case errors.Is(err, service.ErrOAuthAccount):
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: err.Error()})
 	case errors.Is(err, service.ErrEmailNotVerified):
 		return c.JSON(http.StatusForbidden, apitypes.ErrorResponse{Error: err.Error()})
 	default:
@@ -258,4 +260,37 @@ func (h *AuthHandler) Logout(c *echo.Context) error {
 
 	_ = h.svc.Logout(c.Request().Context(), req.RefreshToken)
 	return c.JSON(http.StatusOK, apitypes.MessageResponse{Message: "logged out"})
+}
+
+// GoogleLogin godoc
+// @Summary      Log in or sign up with Google
+// @Description  Takes an ID Token from the mobile client and logs the user in, creating an account if necessary.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body model.OAuthLoginRequest true "Google ID token"
+// @Success      200 {object} model.TokenPairResponse
+// @Failure      400 {object} apitypes.ErrorResponse "invalid body"
+// @Failure      401 {object} apitypes.ErrorResponse "invalid ID token"
+// @Failure      500 {object} apitypes.ErrorResponse "internal error"
+// @Router       /auth/oauth/google [post]
+func (h *AuthHandler) GoogleLogin(c *echo.Context) error {
+	var req model.OAuthLoginRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid body"})
+	}
+
+	pair, err := h.svc.LoginWithGoogle(c.Request().Context(), req.IDToken)
+	switch {
+	case err == nil:
+		return c.JSON(http.StatusOK, model.TokenPairResponse{
+			AccessToken:  pair.AccessToken,
+			RefreshToken: pair.RefreshToken,
+		})
+	case errors.Is(err, service.ErrInvalidCredentials):
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: err.Error()})
+	default:
+		slog.Error("auth handler error", "endpoint", "google-login", "error", err)
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
+	}
 }

@@ -20,7 +20,7 @@ import (
 // on. Defined as an interface so the service can be tested against a
 // fake without spinning up Postgres.
 type AuthRepository interface {
-	CreateUser(ctx context.Context, firstName, lastName, email, passwordHash string) (db.User, error)
+	CreateUser(ctx context.Context, firstName, lastName, email string, passwordHash *string) (db.User, error)
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
 	MarkEmailVerified(ctx context.Context, userID uuid.UUID) error
@@ -33,6 +33,11 @@ type AuthRepository interface {
 	CreateRefreshToken(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) (db.RefreshToken, error)
 	GetRefreshToken(ctx context.Context, tokenHash string) (db.RefreshToken, error)
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
+	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
+
+	CreateOAuthConnection(ctx context.Context, userID uuid.UUID, provider, providerUserID string) error
+	GetUserByOAuthProvider(ctx context.Context, provider, providerUserID string) (db.User, error)
+	GetOAuthProvidersForUser(ctx context.Context, userID uuid.UUID) ([]string, error)
 }
 
 // repo is the concrete AuthRepository backed by sqlc/pgx.
@@ -46,7 +51,7 @@ func NewAuthRepository(q *db.Queries) AuthRepository {
 	return &repo{q: q}
 }
 
-func (r *repo) CreateUser(ctx context.Context, firstName, lastName, email, passwordHash string) (db.User, error) {
+func (r *repo) CreateUser(ctx context.Context, firstName, lastName, email string, passwordHash *string) (db.User, error) {
 	u, err := r.q.CreateUser(ctx, db.CreateUserParams{
 		FirstName:    &firstName,
 		LastName:     &lastName,
@@ -109,6 +114,31 @@ func (r *repo) GetRefreshToken(ctx context.Context, tokenHash string) (db.Refres
 
 func (r *repo) RevokeRefreshToken(ctx context.Context, id uuid.UUID) error {
 	return wrap(r.q.RevokeRefreshToken(ctx, id))
+}
+
+func (r *repo) RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error {
+	return wrap(r.q.RevokeAllUserRefreshTokens(ctx, userID))
+}
+
+func (r *repo) CreateOAuthConnection(ctx context.Context, userID uuid.UUID, provider, providerUserID string) error {
+	return wrap(r.q.CreateOAuthConnection(ctx, db.CreateOAuthConnectionParams{
+		UserID:         userID,
+		Provider:       provider,
+		ProviderUserID: providerUserID,
+	}))
+}
+
+func (r *repo) GetUserByOAuthProvider(ctx context.Context, provider, providerUserID string) (db.User, error) {
+	u, err := r.q.GetUserByOAuthProvider(ctx, db.GetUserByOAuthProviderParams{
+		Provider:       provider,
+		ProviderUserID: providerUserID,
+	})
+	return u, wrap(err)
+}
+
+func (r *repo) GetOAuthProvidersForUser(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	providers, err := r.q.GetOAuthProvidersForUser(ctx, userID)
+	return providers, wrap(err)
 }
 
 // ErrNotFound is returned when a row doesn't exist — the service layer

@@ -14,6 +14,7 @@ import (
 	"sportloga/internal/auth/repository"
 
 	"github.com/google/uuid"
+	"google.golang.org/api/idtoken"
 )
 
 // otpTTL is how long a signup OTP stays valid after issuance.
@@ -61,15 +62,15 @@ type TokenPair struct {
 // dependency list explicit at the constructor rather than settable ad
 // hoc.
 type AuthService struct {
-	repo   repository.AuthRepository
-	issuer *auth.JWTIssuer
-	mailer Mailer
+	repo           repository.AuthRepository
+	issuer         *auth.JWTIssuer
+	mailer         Mailer
+	googleClientID string
 }
 
-// NewAuthService wires an AuthService from its three dependencies: the
-// persistence layer, the JWT issuer, and the email sender.
-func NewAuthService(repo repository.AuthRepository, issuer *auth.JWTIssuer, mailer Mailer) *AuthService {
-	return &AuthService{repo: repo, issuer: issuer, mailer: mailer}
+// NewAuthService wires an AuthService from its dependencies.
+func NewAuthService(repo repository.AuthRepository, issuer *auth.JWTIssuer, mailer Mailer, googleClientID string) *AuthService {
+	return &AuthService{repo: repo, issuer: issuer, mailer: mailer, googleClientID: googleClientID}
 }
 
 // Signup creates a new, unverified user and sends a signup OTP to
@@ -88,7 +89,7 @@ func (s *AuthService) Signup(ctx context.Context, firstName, lastName, email, pa
 		return err
 	}
 
-	user, err := s.repo.CreateUser(ctx, firstName, lastName, email, pwHash)
+	user, err := s.repo.CreateUser(ctx, firstName, lastName, email, &pwHash)
 	if err != nil {
 		return err
 	}
@@ -180,7 +181,16 @@ func (s *AuthService) ResendOTP(ctx context.Context, email string) error {
 // account's existence is already implied by the correct password.
 func (s *AuthService) Login(ctx context.Context, email, password string) (TokenPair, error) {
 	user, err := s.repo.GetUserByEmail(ctx, email)
-	if err != nil || !auth.CheckSecret(user.PasswordHash, password) {
+
+	// If they exist but have no password, they likely signed up via OAuth.
+	if err == nil && user.PasswordHash == nil {
+		providers, pErr := s.repo.GetOAuthProvidersForUser(ctx, user.ID)
+		if pErr == nil && len(providers) > 0 {
+			return TokenPair{}, ErrOAuthAccount
+		}
+	}
+
+	if err != nil || user.PasswordHash == nil || !auth.CheckSecret(*user.PasswordHash, password) {
 		return TokenPair{}, ErrInvalidCredentials
 	}
 	if user.EmailVerifiedAt == nil {
@@ -196,7 +206,15 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (TokenP
 func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (TokenPair, error) {
 	hash := auth.HashToken(refreshToken)
 	stored, err := s.repo.GetRefreshToken(ctx, hash)
-	if err != nil || stored.RevokedAt != nil || time.Now().After(stored.ExpiresAt) {
+	if err != nil || time.Now().After(stored.ExpiresAt) {
+		return TokenPair{}, ErrRefreshTokenInvalid
+	}
+
+	// REUSE DETECTION (The Global Nuke):
+	// If the token was already revoked, someone is trying to use a spent token.
+	// We assume a breach and immediately revoke ALL of this user's active tokens.
+	if stored.RevokedAt != nil {
+		_ = s.repo.RevokeAllUserRefreshTokens(ctx, stored.UserID)
 		return TokenPair{}, ErrRefreshTokenInvalid
 	}
 
@@ -236,4 +254,58 @@ func (s *AuthService) issueTokenPair(ctx context.Context, userID uuid.UUID) (Tok
 	}
 
 	return TokenPair{AccessToken: access, RefreshToken: rawRefresh}, nil
+}
+
+// LoginWithGoogle takes a Google ID token from the client, verifies it,
+// and either logs the user in (if they exist) or creates a new account.
+func (s *AuthService) LoginWithGoogle(ctx context.Context, idToken string) (TokenPair, error) {
+	payload, err := idtoken.Validate(ctx, idToken, s.googleClientID)
+	if err != nil {
+		return TokenPair{}, ErrInvalidCredentials
+	}
+
+	emailRaw, ok := payload.Claims["email"]
+	if !ok {
+		return TokenPair{}, ErrInvalidCredentials
+	}
+	email, ok := emailRaw.(string)
+	if !ok || email == "" {
+		return TokenPair{}, ErrInvalidCredentials
+	}
+
+	googleID := payload.Subject
+
+	// First, check if the OAuth connection already exists
+	user, err := s.repo.GetUserByOAuthProvider(ctx, "google", googleID)
+	if err == nil {
+		return s.issueTokenPair(ctx, user.ID)
+	}
+
+	// Connection doesn't exist. Check if email exists to link them.
+	user, err = s.repo.GetUserByEmail(ctx, email)
+	if err == nil {
+		_ = s.repo.CreateOAuthConnection(ctx, user.ID, "google", googleID)
+		return s.issueTokenPair(ctx, user.ID)
+	}
+
+	// Completely new user. Try to extract names from payload.
+	var firstName, lastName string
+	if givenNameRaw, ok := payload.Claims["given_name"]; ok {
+		firstName, _ = givenNameRaw.(string)
+	}
+	if familyNameRaw, ok := payload.Claims["family_name"]; ok {
+		lastName, _ = familyNameRaw.(string)
+	}
+
+	// Create user with null password
+	user, err = s.repo.CreateUser(ctx, firstName, lastName, email, nil)
+	if err != nil {
+		return TokenPair{}, err
+	}
+
+	// Since Google verified the email, we mark it verified immediately
+	_ = s.repo.MarkEmailVerified(ctx, user.ID)
+	_ = s.repo.CreateOAuthConnection(ctx, user.ID, "google", googleID)
+
+	return s.issueTokenPair(ctx, user.ID)
 }

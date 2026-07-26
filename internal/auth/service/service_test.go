@@ -38,7 +38,7 @@ func newFakeRepo() *fakeRepo {
 	}
 }
 
-func (f *fakeRepo) CreateUser(_ context.Context, firstName, lastName, email, passwordHash string) (db.User, error) {
+func (f *fakeRepo) CreateUser(_ context.Context, firstName, lastName, email string, passwordHash *string) (db.User, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	u := db.User{ID: uuid.New(), FirstName: &firstName, LastName: &lastName, Email: email, PasswordHash: passwordHash, CreatedAt: time.Now()}
@@ -165,6 +165,31 @@ func (f *fakeRepo) RevokeRefreshToken(_ context.Context, id uuid.UUID) error {
 	return errNotFound
 }
 
+func (f *fakeRepo) RevokeAllUserRefreshTokens(_ context.Context, userID uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for k, t := range f.refreshTokens {
+		if t.UserID == userID && t.RevokedAt == nil {
+			now := time.Now()
+			t.RevokedAt = &now
+			f.refreshTokens[k] = t
+		}
+	}
+	return nil
+}
+
+func (f *fakeRepo) CreateOAuthConnection(_ context.Context, userID uuid.UUID, provider, providerUserID string) error {
+	return nil
+}
+
+func (f *fakeRepo) GetUserByOAuthProvider(_ context.Context, provider, providerUserID string) (db.User, error) {
+	return db.User{}, errNotFound
+}
+
+func (f *fakeRepo) GetOAuthProvidersForUser(_ context.Context, userID uuid.UUID) ([]string, error) {
+	return nil, nil
+}
+
 // --- fakeMailer: captures sends instead of calling Resend ---
 
 type fakeMailer struct {
@@ -199,7 +224,8 @@ func newTestService() (*service.AuthService, *fakeRepo, *fakeMailer) {
 	repo := newFakeRepo()
 	mailer := &fakeMailer{}
 	issuer := auth.NewJWTIssuer("test-secret")
-	return service.NewAuthService(repo, issuer, mailer), repo, mailer
+	googleClientID := "test-string"
+	return service.NewAuthService(repo, issuer, mailer, googleClientID), repo, mailer
 }
 
 // --- Signup ---
@@ -387,6 +413,42 @@ func TestRefresh_RotatesToken(t *testing.T) {
 	_, err = svc.Refresh(ctx, firstPair.RefreshToken)
 	if !errors.Is(err, service.ErrRefreshTokenInvalid) {
 		t.Fatalf("expected old refresh token to be invalid after rotation, got %v", err)
+	}
+}
+
+func TestRefresh_ReuseTriggersGlobalNuke(t *testing.T) {
+	svc, _, mailer := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "nuke@example.com", "password123")
+	code := mailer.lastCode(t)
+
+	// Legitimate login 1 (Phone A)
+	pair1, _ := svc.Verify(ctx, "nuke@example.com", code)
+	// Legitimate login 2 (Phone B)
+	pair2, _ := svc.Login(ctx, "nuke@example.com", "password123")
+
+	// Phone A rotates token normally
+	pair1Rotated, err := svc.Refresh(ctx, pair1.RefreshToken)
+	if err != nil {
+		t.Fatalf("expected no error on normal refresh, got %v", err)
+	}
+
+	// Hacker steals the old, already-used token from Phone A and tries to use it
+	_, err = svc.Refresh(ctx, pair1.RefreshToken)
+	if !errors.Is(err, service.ErrRefreshTokenInvalid) {
+		t.Fatalf("expected ErrRefreshTokenInvalid on reuse, got %v", err)
+	}
+
+	// The trap sprang! Both the rotated Phone A token AND Phone B's token should now be dead
+	_, err = svc.Refresh(ctx, pair1Rotated.RefreshToken)
+	if !errors.Is(err, service.ErrRefreshTokenInvalid) {
+		t.Fatal("expected Phone A rotated token to be nuked, but it was still valid")
+	}
+
+	_, err = svc.Refresh(ctx, pair2.RefreshToken)
+	if !errors.Is(err, service.ErrRefreshTokenInvalid) {
+		t.Fatal("expected Phone B token to be nuked, but it was still valid")
 	}
 }
 

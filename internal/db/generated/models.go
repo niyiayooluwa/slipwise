@@ -33,6 +33,14 @@ type Match struct {
 	Status   string    `json:"status"`
 }
 
+type OauthConnection struct {
+	ID             uuid.UUID `json:"id"`
+	UserID         uuid.UUID `json:"user_id"`
+	Provider       string    `json:"provider"`
+	ProviderUserID string    `json:"provider_user_id"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
 type OtpCode struct {
 	ID           uuid.UUID  `json:"id"`
 	Email        string     `json:"email"`
@@ -59,7 +67,7 @@ type User struct {
 	FirstName       *string    `json:"first_name"`
 	LastName        *string    `json:"last_name"`
 	Email           string     `json:"email"`
-	PasswordHash    string     `json:"password_hash"`
+	PasswordHash    *string    `json:"password_hash"`
 	EmailVerifiedAt *time.Time `json:"email_verified_at"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`

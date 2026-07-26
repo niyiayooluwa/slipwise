@@ -14,6 +14,7 @@ type Querier interface {
 	CreateBookingCode(ctx context.Context, arg CreateBookingCodeParams) (BookingCode, error)
 	CreateBookingSelection(ctx context.Context, arg CreateBookingSelectionParams) (BookingSelection, error)
 	CreateMatch(ctx context.Context, arg CreateMatchParams) (Match, error)
+	CreateOAuthConnection(ctx context.Context, arg CreateOAuthConnectionParams) error
 	CreateOTP(ctx context.Context, arg CreateOTPParams) (OtpCode, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
@@ -21,9 +22,11 @@ type Querier interface {
 	EvaluateBucket(ctx context.Context, arg EvaluateBucketParams) ([]uuid.UUID, error)
 	GetBookingCodeByCode(ctx context.Context, code string) (BookingCode, error)
 	GetLatestOTP(ctx context.Context, arg GetLatestOTPParams) (OtpCode, error)
+	GetOAuthProvidersForUser(ctx context.Context, userID uuid.UUID) ([]string, error)
 	GetRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	GetUserByOAuthProvider(ctx context.Context, arg GetUserByOAuthProviderParams) (User, error)
 	GetUsersForBookingCodes(ctx context.Context, dollar_1 []uuid.UUID) ([]uuid.UUID, error)
 	IncrementOTPAttempts(ctx context.Context, id uuid.UUID) error
 	MarkEmailVerified(ctx context.Context, id uuid.UUID) error

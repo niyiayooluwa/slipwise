@@ -83,7 +83,7 @@ type CreateUserParams struct {
 	FirstName    *string `json:"first_name"`
 	LastName     *string `json:"last_name"`
 	Email        string  `json:"email"`
-	PasswordHash string  `json:"password_hash"`
+	PasswordHash *string `json:"password_hash"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {

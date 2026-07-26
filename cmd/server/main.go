@@ -59,7 +59,7 @@ func main() {
 	resendMailer := mailer.NewResendMailer(cfg.ResendAPIKey, cfg.ResendFromAddress)
 
 	authRepo := repository.NewAuthRepository(queries)
-	authSvc := service.NewAuthService(authRepo, jwtIssuer, resendMailer)
+	authSvc := service.NewAuthService(authRepo, jwtIssuer, resendMailer, cfg.GoogleClientID)
 	authH := authhandler.NewAuthHandler(authSvc)
 
 	// As each new domain (realtime, notifications, betting...) gets its

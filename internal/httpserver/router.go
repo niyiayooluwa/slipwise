@@ -73,6 +73,7 @@ func mountAuthRoutes(g *echo.Group, h *authhandler.AuthHandler, extractor echo.I
 	g.POST("/verify", h.Verify)
 	g.POST("/resend-otp", h.ResendOTP)
 	g.POST("/login", h.Login, loginRateLimit)
+	g.POST("/oauth/google", h.GoogleLogin, loginRateLimit)
 	g.POST("/refresh", h.Refresh)
 	g.POST("/logout", h.Logout)
 }

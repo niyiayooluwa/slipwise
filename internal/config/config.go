@@ -52,6 +52,9 @@ type Config struct {
 	// Changing deployment topology never requires a code change — only an
 	// update to this env var.
 	TrustedProxyCIDRs []string
+	// GoogleClientID is the OAuth client ID for the Flutter app.
+	// Used to verify ID tokens from Google Sign-In.
+	GoogleClientID string
 }
 
 // Load reads .env (if present) into the process environment, then
@@ -71,6 +74,7 @@ func Load() (*Config, error) {
 		ResendAPIKey:      os.Getenv("RESEND_API_KEY"),
 		ResendFromAddress: os.Getenv("RESEND_FROM_ADDRESS"),
 		Port:              os.Getenv("PORT"),
+		GoogleClientID:    os.Getenv("GOOGLE_CLIENT_ID"),
 	}
 
 	if cfg.Port == "" {
@@ -92,6 +96,7 @@ func Load() (*Config, error) {
 		"JWT_SECRET":          cfg.JWTSecret,
 		"RESEND_API_KEY":      cfg.ResendAPIKey,
 		"RESEND_FROM_ADDRESS": cfg.ResendFromAddress,
+		"GOOGLE_CLIENT_ID":    cfg.GoogleClientID,
 	}
 
 	var missing []string

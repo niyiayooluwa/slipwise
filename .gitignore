@@ -6,3 +6,4 @@ docs/
 *.exe
 /tmp/
 .service/
+.idea/

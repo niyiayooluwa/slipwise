@@ -19,20 +19,21 @@ type Querier interface {
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateUserTicket(ctx context.Context, arg CreateUserTicketParams) (UserTicket, error)
-	EvaluateBucket(ctx context.Context, arg EvaluateBucketParams) ([]uuid.UUID, error)
-	GetBookingCodeByCode(ctx context.Context, code string) (BookingCode, error)
+	// Used by the Background Poller to find out what matches to fetch
+	GetActiveBucketsByProvider(ctx context.Context, provider string) ([]string, error)
 	GetLatestOTP(ctx context.Context, arg GetLatestOTPParams) (OtpCode, error)
 	GetOAuthProvidersForUser(ctx context.Context, userID uuid.UUID) ([]string, error)
 	GetRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByOAuthProvider(ctx context.Context, arg GetUserByOAuthProviderParams) (User, error)
-	GetUsersForBookingCodes(ctx context.Context, dollar_1 []uuid.UUID) ([]uuid.UUID, error)
 	IncrementOTPAttempts(ctx context.Context, id uuid.UUID) error
 	MarkEmailVerified(ctx context.Context, id uuid.UUID) error
 	MarkOTPUsed(ctx context.Context, id uuid.UUID) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
+	// The Fast Settlement query!
+	UpdateSelectionStatus(ctx context.Context, arg UpdateSelectionStatusParams) ([]uuid.UUID, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -9,52 +9,66 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createBookingCode = `-- name: CreateBookingCode :one
-INSERT INTO booking_codes (bookie, code, status)
-VALUES ($1, $2, $3)
-RETURNING id, bookie, code, status
+INSERT INTO booking_codes (provider, code, total_odds, status) 
+VALUES ($1, $2, $3, $4) RETURNING id, provider, code, status, total_odds
 `
 
 type CreateBookingCodeParams struct {
-	Bookie string `json:"bookie"`
-	Code   string `json:"code"`
-	Status string `json:"status"`
+	Provider  string         `json:"provider"`
+	Code      string         `json:"code"`
+	TotalOdds pgtype.Numeric `json:"total_odds"`
+	Status    string         `json:"status"`
 }
 
 func (q *Queries) CreateBookingCode(ctx context.Context, arg CreateBookingCodeParams) (BookingCode, error) {
-	row := q.db.QueryRow(ctx, createBookingCode, arg.Bookie, arg.Code, arg.Status)
+	row := q.db.QueryRow(ctx, createBookingCode,
+		arg.Provider,
+		arg.Code,
+		arg.TotalOdds,
+		arg.Status,
+	)
 	var i BookingCode
 	err := row.Scan(
 		&i.ID,
-		&i.Bookie,
+		&i.Provider,
 		&i.Code,
 		&i.Status,
+		&i.TotalOdds,
 	)
 	return i, err
 }
 
 const createBookingSelection = `-- name: CreateBookingSelection :one
-INSERT INTO booking_selections (booking_code_id, match_id, market_type, selection, status)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, booking_code_id, match_id, market_type, selection, status
+INSERT INTO booking_selections (booking_code_id, match_id, provider, external_match_id, market_type, market_spec, selection, odds, status) 
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, booking_code_id, match_id, market_type, selection, status, provider, external_match_id, market_spec, odds
 `
 
 type CreateBookingSelectionParams struct {
-	BookingCodeID uuid.UUID `json:"booking_code_id"`
-	MatchID       uuid.UUID `json:"match_id"`
-	MarketType    string    `json:"market_type"`
-	Selection     string    `json:"selection"`
-	Status        string    `json:"status"`
+	BookingCodeID   uuid.UUID      `json:"booking_code_id"`
+	MatchID         uuid.UUID      `json:"match_id"`
+	Provider        string         `json:"provider"`
+	ExternalMatchID string         `json:"external_match_id"`
+	MarketType      string         `json:"market_type"`
+	MarketSpec      *string        `json:"market_spec"`
+	Selection       string         `json:"selection"`
+	Odds            pgtype.Numeric `json:"odds"`
+	Status          string         `json:"status"`
 }
 
 func (q *Queries) CreateBookingSelection(ctx context.Context, arg CreateBookingSelectionParams) (BookingSelection, error) {
 	row := q.db.QueryRow(ctx, createBookingSelection,
 		arg.BookingCodeID,
 		arg.MatchID,
+		arg.Provider,
+		arg.ExternalMatchID,
 		arg.MarketType,
+		arg.MarketSpec,
 		arg.Selection,
+		arg.Odds,
 		arg.Status,
 	)
 	var i BookingSelection
@@ -65,75 +79,122 @@ func (q *Queries) CreateBookingSelection(ctx context.Context, arg CreateBookingS
 		&i.MarketType,
 		&i.Selection,
 		&i.Status,
+		&i.Provider,
+		&i.ExternalMatchID,
+		&i.MarketSpec,
+		&i.Odds,
 	)
 	return i, err
 }
 
 const createMatch = `-- name: CreateMatch :one
-INSERT INTO matches (home_team, away_team, status)
-VALUES ($1, $2, $3)
-RETURNING id, home_team, away_team, status
+INSERT INTO matches (home_team, away_team, start_time, status) 
+VALUES ($1, $2, $3, $4) RETURNING id, home_team, away_team, status, start_time
 `
 
 type CreateMatchParams struct {
-	HomeTeam string `json:"home_team"`
-	AwayTeam string `json:"away_team"`
-	Status   string `json:"status"`
+	HomeTeam  string             `json:"home_team"`
+	AwayTeam  string             `json:"away_team"`
+	StartTime pgtype.Timestamptz `json:"start_time"`
+	Status    string             `json:"status"`
 }
 
 func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (Match, error) {
-	row := q.db.QueryRow(ctx, createMatch, arg.HomeTeam, arg.AwayTeam, arg.Status)
+	row := q.db.QueryRow(ctx, createMatch,
+		arg.HomeTeam,
+		arg.AwayTeam,
+		arg.StartTime,
+		arg.Status,
+	)
 	var i Match
 	err := row.Scan(
 		&i.ID,
 		&i.HomeTeam,
 		&i.AwayTeam,
 		&i.Status,
+		&i.StartTime,
 	)
 	return i, err
 }
 
 const createUserTicket = `-- name: CreateUserTicket :one
-INSERT INTO user_tickets (user_id, booking_code_id)
-VALUES ($1, $2)
-RETURNING id, user_id, booking_code_id
+INSERT INTO user_tickets (user_id, booking_code_id, stake) 
+VALUES ($1, $2, $3) RETURNING id, user_id, booking_code_id, stake, created_at
 `
 
 type CreateUserTicketParams struct {
-	UserID        uuid.UUID `json:"user_id"`
-	BookingCodeID uuid.UUID `json:"booking_code_id"`
+	UserID        uuid.UUID      `json:"user_id"`
+	BookingCodeID uuid.UUID      `json:"booking_code_id"`
+	Stake         pgtype.Numeric `json:"stake"`
 }
 
 func (q *Queries) CreateUserTicket(ctx context.Context, arg CreateUserTicketParams) (UserTicket, error) {
-	row := q.db.QueryRow(ctx, createUserTicket, arg.UserID, arg.BookingCodeID)
+	row := q.db.QueryRow(ctx, createUserTicket, arg.UserID, arg.BookingCodeID, arg.Stake)
 	var i UserTicket
-	err := row.Scan(&i.ID, &i.UserID, &i.BookingCodeID)
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.BookingCodeID,
+		&i.Stake,
+		&i.CreatedAt,
+	)
 	return i, err
 }
 
-const evaluateBucket = `-- name: EvaluateBucket :many
+const getActiveBucketsByProvider = `-- name: GetActiveBucketsByProvider :many
+SELECT DISTINCT external_match_id 
+FROM booking_selections 
+WHERE provider = $1 AND status = 'PENDING'
+`
+
+// Used by the Background Poller to find out what matches to fetch
+func (q *Queries) GetActiveBucketsByProvider(ctx context.Context, provider string) ([]string, error) {
+	rows, err := q.db.Query(ctx, getActiveBucketsByProvider, provider)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var external_match_id string
+		if err := rows.Scan(&external_match_id); err != nil {
+			return nil, err
+		}
+		items = append(items, external_match_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateSelectionStatus = `-- name: UpdateSelectionStatus :many
 UPDATE booking_selections 
-SET status = $4 
-WHERE match_id = $1 
-  AND market_type = $2 
-  AND selection = $3 
+SET status = $1 
+WHERE provider = $2 
+  AND external_match_id = $3 
+  AND market_type = $4 
+  AND selection = $5 
   AND status = 'PENDING'
 RETURNING booking_code_id
 `
 
-type EvaluateBucketParams struct {
-	MatchID    uuid.UUID `json:"match_id"`
-	MarketType string    `json:"market_type"`
-	Selection  string    `json:"selection"`
-	Status     string    `json:"status"`
+type UpdateSelectionStatusParams struct {
+	Status          string `json:"status"`
+	Provider        string `json:"provider"`
+	ExternalMatchID string `json:"external_match_id"`
+	MarketType      string `json:"market_type"`
+	Selection       string `json:"selection"`
 }
 
-func (q *Queries) EvaluateBucket(ctx context.Context, arg EvaluateBucketParams) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, evaluateBucket,
-		arg.MatchID,
+// The Fast Settlement query!
+func (q *Queries) UpdateSelectionStatus(ctx context.Context, arg UpdateSelectionStatusParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, updateSelectionStatus,
+		arg.Status,
+		arg.Provider,
+		arg.ExternalMatchID,
 		arg.MarketType,
 		arg.Selection,
-		arg.Status,
 	)
 	if err != nil {
 		return nil, err
@@ -146,48 +207,6 @@ func (q *Queries) EvaluateBucket(ctx context.Context, arg EvaluateBucketParams) 
 			return nil, err
 		}
 		items = append(items, booking_code_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getBookingCodeByCode = `-- name: GetBookingCodeByCode :one
-SELECT id, bookie, code, status FROM booking_codes WHERE code = $1 LIMIT 1
-`
-
-func (q *Queries) GetBookingCodeByCode(ctx context.Context, code string) (BookingCode, error) {
-	row := q.db.QueryRow(ctx, getBookingCodeByCode, code)
-	var i BookingCode
-	err := row.Scan(
-		&i.ID,
-		&i.Bookie,
-		&i.Code,
-		&i.Status,
-	)
-	return i, err
-}
-
-const getUsersForBookingCodes = `-- name: GetUsersForBookingCodes :many
-SELECT user_id 
-FROM user_tickets 
-WHERE booking_code_id = ANY($1::uuid[])
-`
-
-func (q *Queries) GetUsersForBookingCodes(ctx context.Context, dollar_1 []uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, getUsersForBookingCodes, dollar_1)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []uuid.UUID{}
-	for rows.Next() {
-		var user_id uuid.UUID
-		if err := rows.Scan(&user_id); err != nil {
-			return nil, err
-		}
-		items = append(items, user_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

@@ -8,29 +8,36 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type BookingCode struct {
-	ID     uuid.UUID `json:"id"`
-	Bookie string    `json:"bookie"`
-	Code   string    `json:"code"`
-	Status string    `json:"status"`
+	ID        uuid.UUID      `json:"id"`
+	Provider  string         `json:"provider"`
+	Code      string         `json:"code"`
+	Status    string         `json:"status"`
+	TotalOdds pgtype.Numeric `json:"total_odds"`
 }
 
 type BookingSelection struct {
-	ID            uuid.UUID `json:"id"`
-	BookingCodeID uuid.UUID `json:"booking_code_id"`
-	MatchID       uuid.UUID `json:"match_id"`
-	MarketType    string    `json:"market_type"`
-	Selection     string    `json:"selection"`
-	Status        string    `json:"status"`
+	ID              uuid.UUID      `json:"id"`
+	BookingCodeID   uuid.UUID      `json:"booking_code_id"`
+	MatchID         uuid.UUID      `json:"match_id"`
+	MarketType      string         `json:"market_type"`
+	Selection       string         `json:"selection"`
+	Status          string         `json:"status"`
+	Provider        string         `json:"provider"`
+	ExternalMatchID string         `json:"external_match_id"`
+	MarketSpec      *string        `json:"market_spec"`
+	Odds            pgtype.Numeric `json:"odds"`
 }
 
 type Match struct {
-	ID       uuid.UUID `json:"id"`
-	HomeTeam string    `json:"home_team"`
-	AwayTeam string    `json:"away_team"`
-	Status   string    `json:"status"`
+	ID        uuid.UUID          `json:"id"`
+	HomeTeam  string             `json:"home_team"`
+	AwayTeam  string             `json:"away_team"`
+	Status    string             `json:"status"`
+	StartTime pgtype.Timestamptz `json:"start_time"`
 }
 
 type OauthConnection struct {
@@ -77,7 +84,9 @@ type User struct {
 }
 
 type UserTicket struct {
-	ID            uuid.UUID `json:"id"`
-	UserID        uuid.UUID `json:"user_id"`
-	BookingCodeID uuid.UUID `json:"booking_code_id"`
+	ID            uuid.UUID          `json:"id"`
+	UserID        uuid.UUID          `json:"user_id"`
+	BookingCodeID uuid.UUID          `json:"booking_code_id"`
+	Stake         pgtype.Numeric     `json:"stake"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }

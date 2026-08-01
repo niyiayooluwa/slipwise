@@ -6,15 +6,23 @@ RETURNING *;
 
 -- name: CreateBookingCode :one
 INSERT INTO booking_codes (provider, code, total_odds, status) 
-VALUES ($1, $2, $3, $4) RETURNING *;
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (provider, code) DO UPDATE SET total_odds = EXCLUDED.total_odds, status = EXCLUDED.status
+RETURNING *;
 
 -- name: CreateBookingSelection :one
 INSERT INTO booking_selections (booking_code_id, match_id, market_type, market_spec, selection, odds, status) 
 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;
 
 -- name: CreateUserTicket :one
-INSERT INTO user_tickets (user_id, booking_code_id, stake) 
-VALUES ($1, $2, $3) RETURNING *;
+INSERT INTO user_tickets (user_id, booking_code_id, stake, description) 
+VALUES ($1, $2, $3, $4) RETURNING *;
+
+-- name: UpsertUserTrack :one
+INSERT INTO user_tickets (user_id, booking_code_id, stake, description) 
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (user_id, booking_code_id) DO UPDATE SET stake = EXCLUDED.stake, description = EXCLUDED.description
+RETURNING *;
 
 -- name: GetActiveBucketsByProvider :many
 -- Used by the Background Poller to find out what matches to fetch
@@ -32,3 +40,44 @@ WHERE match_id = $2
   AND selection = $4 
   AND status = 'PENDING'
 RETURNING booking_code_id;
+
+-- name: DeleteUserTicket :exec
+DELETE FROM user_tickets 
+WHERE id = $1 AND user_id = $2;
+
+-- name: GetUserHistory :many
+SELECT 
+    ut.id AS ticket_id,
+    ut.stake,
+    ut.description,
+    ut.created_at AS tracked_at,
+    bc.provider,
+    bc.code,
+    bc.total_odds,
+    bc.status AS overall_status
+FROM user_tickets ut
+JOIN booking_codes bc ON ut.booking_code_id = bc.id
+WHERE ut.user_id = $1
+ORDER BY ut.created_at DESC;
+
+-- name: GetTicketDetails :many
+SELECT 
+    bs.id AS selection_id,
+    bs.market_type,
+    bs.market_spec,
+    bs.selection,
+    bs.odds,
+    bs.status AS selection_status,
+    m.home_team,
+    m.away_team,
+    m.start_time,
+    m.status AS match_status
+FROM booking_selections bs
+JOIN matches m ON bs.match_id = m.id
+JOIN user_tickets ut ON ut.booking_code_id = bs.booking_code_id
+WHERE ut.id = $1 AND ut.user_id = $2;
+
+-- name: CleanupOrphanedBookingCodes :exec
+DELETE FROM booking_codes
+WHERE id NOT IN (SELECT booking_code_id FROM user_tickets)
+AND created_at < NOW() - INTERVAL '7 days';

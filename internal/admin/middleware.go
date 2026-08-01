@@ -1,3 +1,4 @@
+// Package admin provides administrative HTTP middleware and handlers.
 package admin
 
 import (

@@ -7,12 +7,13 @@ import (
 )
 
 type SportlogaTicket struct {
-	UserID     uuid.UUID
-	Stake      float64
-	Provider   string
-	Code       string
-	TotalOdds  float64
-	Selections []TicketSelection
+	UserID      uuid.UUID
+	Stake       *float64 // Pointer allows for NULL (stakeless tracking)
+	Description string
+	Provider    string
+	Code        string
+	TotalOdds   float64
+	Selections  []TicketSelection
 }
 
 type TicketSelection struct {

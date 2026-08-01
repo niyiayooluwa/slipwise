@@ -1,3 +1,4 @@
+// Package domain contains the core models and types for the betting system.
 package domain
 
 type Match struct {

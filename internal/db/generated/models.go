@@ -89,4 +89,5 @@ type UserTicket struct {
 	BookingCodeID uuid.UUID          `json:"booking_code_id"`
 	Stake         pgtype.Numeric     `json:"stake"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	Description   string             `json:"description"`
 }

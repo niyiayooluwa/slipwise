@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	CleanupOrphanedBookingCodes(ctx context.Context) error
 	CreateBookingCode(ctx context.Context, arg CreateBookingCodeParams) (BookingCode, error)
 	CreateBookingSelection(ctx context.Context, arg CreateBookingSelectionParams) (BookingSelection, error)
 	CreateMatch(ctx context.Context, arg CreateMatchParams) (Match, error)
@@ -19,14 +20,17 @@ type Querier interface {
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateUserTicket(ctx context.Context, arg CreateUserTicketParams) (UserTicket, error)
+	DeleteUserTicket(ctx context.Context, arg DeleteUserTicketParams) error
 	// Used by the Background Poller to find out what matches to fetch
 	GetActiveBucketsByProvider(ctx context.Context, provider string) ([]GetActiveBucketsByProviderRow, error)
 	GetLatestOTP(ctx context.Context, arg GetLatestOTPParams) (OtpCode, error)
 	GetOAuthProvidersForUser(ctx context.Context, userID uuid.UUID) ([]string, error)
 	GetRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
+	GetTicketDetails(ctx context.Context, arg GetTicketDetailsParams) ([]GetTicketDetailsRow, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByOAuthProvider(ctx context.Context, arg GetUserByOAuthProviderParams) (User, error)
+	GetUserHistory(ctx context.Context, userID uuid.UUID) ([]GetUserHistoryRow, error)
 	IncrementOTPAttempts(ctx context.Context, id uuid.UUID) error
 	MarkEmailVerified(ctx context.Context, id uuid.UUID) error
 	MarkOTPUsed(ctx context.Context, id uuid.UUID) error
@@ -34,6 +38,7 @@ type Querier interface {
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
 	// The Fast Settlement query!
 	UpdateSelectionStatus(ctx context.Context, arg UpdateSelectionStatusParams) ([]uuid.UUID, error)
+	UpsertUserTrack(ctx context.Context, arg UpsertUserTrackParams) (UserTicket, error)
 }
 
 var _ Querier = (*Queries)(nil)

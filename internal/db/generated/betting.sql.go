@@ -12,9 +12,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const cleanupOrphanedBookingCodes = `-- name: CleanupOrphanedBookingCodes :exec
+DELETE FROM booking_codes
+WHERE id NOT IN (SELECT booking_code_id FROM user_tickets)
+AND created_at < NOW() - INTERVAL '7 days'
+`
+
+func (q *Queries) CleanupOrphanedBookingCodes(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, cleanupOrphanedBookingCodes)
+	return err
+}
+
 const createBookingCode = `-- name: CreateBookingCode :one
 INSERT INTO booking_codes (provider, code, total_odds, status) 
-VALUES ($1, $2, $3, $4) RETURNING id, provider, code, status, total_odds
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (provider, code) DO UPDATE SET total_odds = EXCLUDED.total_odds, status = EXCLUDED.status
+RETURNING id, provider, code, status, total_odds
 `
 
 type CreateBookingCodeParams struct {
@@ -120,18 +133,24 @@ func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (Match
 }
 
 const createUserTicket = `-- name: CreateUserTicket :one
-INSERT INTO user_tickets (user_id, booking_code_id, stake) 
-VALUES ($1, $2, $3) RETURNING id, user_id, booking_code_id, stake, created_at
+INSERT INTO user_tickets (user_id, booking_code_id, stake, description) 
+VALUES ($1, $2, $3, $4) RETURNING id, user_id, booking_code_id, stake, created_at, description
 `
 
 type CreateUserTicketParams struct {
 	UserID        uuid.UUID      `json:"user_id"`
 	BookingCodeID uuid.UUID      `json:"booking_code_id"`
 	Stake         pgtype.Numeric `json:"stake"`
+	Description   string         `json:"description"`
 }
 
 func (q *Queries) CreateUserTicket(ctx context.Context, arg CreateUserTicketParams) (UserTicket, error) {
-	row := q.db.QueryRow(ctx, createUserTicket, arg.UserID, arg.BookingCodeID, arg.Stake)
+	row := q.db.QueryRow(ctx, createUserTicket,
+		arg.UserID,
+		arg.BookingCodeID,
+		arg.Stake,
+		arg.Description,
+	)
 	var i UserTicket
 	err := row.Scan(
 		&i.ID,
@@ -139,8 +158,24 @@ func (q *Queries) CreateUserTicket(ctx context.Context, arg CreateUserTicketPara
 		&i.BookingCodeID,
 		&i.Stake,
 		&i.CreatedAt,
+		&i.Description,
 	)
 	return i, err
+}
+
+const deleteUserTicket = `-- name: DeleteUserTicket :exec
+DELETE FROM user_tickets 
+WHERE id = $1 AND user_id = $2
+`
+
+type DeleteUserTicketParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteUserTicket(ctx context.Context, arg DeleteUserTicketParams) error {
+	_, err := q.db.Exec(ctx, deleteUserTicket, arg.ID, arg.UserID)
+	return err
 }
 
 const getActiveBucketsByProvider = `-- name: GetActiveBucketsByProvider :many
@@ -166,6 +201,129 @@ func (q *Queries) GetActiveBucketsByProvider(ctx context.Context, provider strin
 	for rows.Next() {
 		var i GetActiveBucketsByProviderRow
 		if err := rows.Scan(&i.ID, &i.ProviderID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTicketDetails = `-- name: GetTicketDetails :many
+SELECT 
+    bs.id AS selection_id,
+    bs.market_type,
+    bs.market_spec,
+    bs.selection,
+    bs.odds,
+    bs.status AS selection_status,
+    m.home_team,
+    m.away_team,
+    m.start_time,
+    m.status AS match_status
+FROM booking_selections bs
+JOIN matches m ON bs.match_id = m.id
+JOIN user_tickets ut ON ut.booking_code_id = bs.booking_code_id
+WHERE ut.id = $1 AND ut.user_id = $2
+`
+
+type GetTicketDetailsParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+type GetTicketDetailsRow struct {
+	SelectionID     uuid.UUID          `json:"selection_id"`
+	MarketType      string             `json:"market_type"`
+	MarketSpec      *string            `json:"market_spec"`
+	Selection       string             `json:"selection"`
+	Odds            pgtype.Numeric     `json:"odds"`
+	SelectionStatus string             `json:"selection_status"`
+	HomeTeam        string             `json:"home_team"`
+	AwayTeam        string             `json:"away_team"`
+	StartTime       pgtype.Timestamptz `json:"start_time"`
+	MatchStatus     string             `json:"match_status"`
+}
+
+func (q *Queries) GetTicketDetails(ctx context.Context, arg GetTicketDetailsParams) ([]GetTicketDetailsRow, error) {
+	rows, err := q.db.Query(ctx, getTicketDetails, arg.ID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetTicketDetailsRow{}
+	for rows.Next() {
+		var i GetTicketDetailsRow
+		if err := rows.Scan(
+			&i.SelectionID,
+			&i.MarketType,
+			&i.MarketSpec,
+			&i.Selection,
+			&i.Odds,
+			&i.SelectionStatus,
+			&i.HomeTeam,
+			&i.AwayTeam,
+			&i.StartTime,
+			&i.MatchStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUserHistory = `-- name: GetUserHistory :many
+SELECT 
+    ut.id AS ticket_id,
+    ut.stake,
+    ut.description,
+    ut.created_at AS tracked_at,
+    bc.provider,
+    bc.code,
+    bc.total_odds,
+    bc.status AS overall_status
+FROM user_tickets ut
+JOIN booking_codes bc ON ut.booking_code_id = bc.id
+WHERE ut.user_id = $1
+ORDER BY ut.created_at DESC
+`
+
+type GetUserHistoryRow struct {
+	TicketID      uuid.UUID          `json:"ticket_id"`
+	Stake         pgtype.Numeric     `json:"stake"`
+	Description   string             `json:"description"`
+	TrackedAt     pgtype.Timestamptz `json:"tracked_at"`
+	Provider      string             `json:"provider"`
+	Code          string             `json:"code"`
+	TotalOdds     pgtype.Numeric     `json:"total_odds"`
+	OverallStatus string             `json:"overall_status"`
+}
+
+func (q *Queries) GetUserHistory(ctx context.Context, userID uuid.UUID) ([]GetUserHistoryRow, error) {
+	rows, err := q.db.Query(ctx, getUserHistory, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetUserHistoryRow{}
+	for rows.Next() {
+		var i GetUserHistoryRow
+		if err := rows.Scan(
+			&i.TicketID,
+			&i.Stake,
+			&i.Description,
+			&i.TrackedAt,
+			&i.Provider,
+			&i.Code,
+			&i.TotalOdds,
+			&i.OverallStatus,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -217,4 +375,37 @@ func (q *Queries) UpdateSelectionStatus(ctx context.Context, arg UpdateSelection
 		return nil, err
 	}
 	return items, nil
+}
+
+const upsertUserTrack = `-- name: UpsertUserTrack :one
+INSERT INTO user_tickets (user_id, booking_code_id, stake, description) 
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (user_id, booking_code_id) DO UPDATE SET stake = EXCLUDED.stake, description = EXCLUDED.description
+RETURNING id, user_id, booking_code_id, stake, created_at, description
+`
+
+type UpsertUserTrackParams struct {
+	UserID        uuid.UUID      `json:"user_id"`
+	BookingCodeID uuid.UUID      `json:"booking_code_id"`
+	Stake         pgtype.Numeric `json:"stake"`
+	Description   string         `json:"description"`
+}
+
+func (q *Queries) UpsertUserTrack(ctx context.Context, arg UpsertUserTrackParams) (UserTicket, error) {
+	row := q.db.QueryRow(ctx, upsertUserTrack,
+		arg.UserID,
+		arg.BookingCodeID,
+		arg.Stake,
+		arg.Description,
+	)
+	var i UserTicket
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.BookingCodeID,
+		&i.Stake,
+		&i.CreatedAt,
+		&i.Description,
+	)
+	return i, err
 }

@@ -48,7 +48,7 @@ func (d *RedisTaskDistributor) DistributeTaskProcessGoal(ctx context.Context, pa
 	}
 
 	task := asynq.NewTask(TaskProcessGoal, jsonPayload, opts...)
-	
+
 	// Talk to the real Redis here
 	info, err := d.client.EnqueueContext(ctx, task)
 	if err != nil {

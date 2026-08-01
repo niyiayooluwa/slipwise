@@ -7,8 +7,8 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-// MockDistributor is our fake sender for testing. 
-// It satisfies the TaskDistributor "Job Description" perfectly, 
+// MockDistributor is our fake sender for testing.
+// It satisfies the TaskDistributor "Job Description" perfectly,
 // because it has the DistributeTaskProcessGoal method!
 type MockDistributor struct {
 	CapturedPayload *GoalPayload // We store the data here so we can check it later

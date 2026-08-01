@@ -51,9 +51,47 @@ func (c *cloudflareClientImpl) FetchLiveMatches(ctx context.Context) ([]LiveMatc
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
+	var payload struct {
+		Data []struct {
+			Events []struct {
+				EventID string          `json:"eventId"`
+				Status  int             `json:"status"` // 1=live, 2=ended, etc
+				Raw     json.RawMessage `json:"-"`
+			} `json:"events"`
+		} `json:"data"`
+	}
+
+	// We need the raw json for each event, so decode differently
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read live matches body: %w", err)
+	}
+
+	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
+		return nil, fmt.Errorf("failed to decode live matches: %w", err)
+	}
+
+	// But we also need the raw json of the event.
+	// Since we unmarshaled the whole thing, we lost the raw bytes of each event.
+	// Let's do a trick using map[string]interface{} or just rawmessage
+	var rawPayload struct {
+		Data []struct {
+			Events []json.RawMessage `json:"events"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(bodyBytes, &rawPayload); err != nil {
+		return nil, err
+	}
+
 	var matches []LiveMatch
-	if err := json.NewDecoder(resp.Body).Decode(&matches); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	for i, category := range rawPayload.Data {
+		for j, rawEvent := range category.Events {
+			eventID := payload.Data[i].Events[j].EventID
+			matches = append(matches, LiveMatch{
+				ProviderID: eventID,
+				Data:       rawEvent,
+			})
+		}
 	}
 
 	return matches, nil

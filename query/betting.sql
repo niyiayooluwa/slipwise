@@ -31,6 +31,11 @@ FROM booking_selections bs
 JOIN matches m ON bs.match_id = m.id
 WHERE m.provider = $1 AND bs.status = 'PENDING';
 
+-- name: GetPendingBucketsForMatch :many
+SELECT DISTINCT market_type, market_spec, selection 
+FROM booking_selections 
+WHERE match_id = $1 AND status = 'PENDING';
+
 -- name: UpdateSelectionStatus :many
 -- The Fast Settlement query!
 UPDATE booking_selections 

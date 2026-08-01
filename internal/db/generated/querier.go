@@ -25,6 +25,7 @@ type Querier interface {
 	GetActiveBucketsByProvider(ctx context.Context, provider string) ([]GetActiveBucketsByProviderRow, error)
 	GetLatestOTP(ctx context.Context, arg GetLatestOTPParams) (OtpCode, error)
 	GetOAuthProvidersForUser(ctx context.Context, userID uuid.UUID) ([]string, error)
+	GetPendingBucketsForMatch(ctx context.Context, matchID uuid.UUID) ([]GetPendingBucketsForMatchRow, error)
 	GetRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetTicketDetails(ctx context.Context, arg GetTicketDetailsParams) ([]GetTicketDetailsRow, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)

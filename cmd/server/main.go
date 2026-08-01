@@ -84,6 +84,10 @@ func main() {
 	cleanupJob := worker.NewCleanupJob(bettingSvc)
 	go cleanupJob.Start(context.Background())
 
+	// Start live match poller
+	poller := worker.NewPoller(cfClient, bettingRepo, worker.NewLiveEvaluator(bettingRepo), 60*time.Second)
+	go poller.Start(context.Background())
+
 	// As each new domain (realtime, notifications, betting...) gets its
 	// own repo/service/handler, wire it here and add it to Handlers below.
 	// Route mounting itself never happens in this file — see

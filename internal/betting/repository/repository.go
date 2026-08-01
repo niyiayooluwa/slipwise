@@ -11,6 +11,7 @@ import (
 
 	"sportloga/internal/betting/domain"
 	db "sportloga/internal/db/generated"
+	"sportloga/internal/worker"
 )
 
 type Repository struct {
@@ -112,8 +113,28 @@ func (r *Repository) GetTicketDetails(ctx context.Context, arg db.GetTicketDetai
 	return r.queries.GetTicketDetails(ctx, arg)
 }
 
+func (r *Repository) GetPendingBucketsForMatch(ctx context.Context, matchID uuid.UUID) ([]db.GetPendingBucketsForMatchRow, error) {
+	return r.queries.GetPendingBucketsForMatch(ctx, matchID)
+}
+
 func (r *Repository) CleanupOrphanedBookingCodes(ctx context.Context) error {
 	return r.queries.CleanupOrphanedBookingCodes(ctx)
+}
+
+func (r *Repository) GetPendingMatches(ctx context.Context) ([]worker.PendingMatch, error) {
+	// Hardcoded to SPORTYBET for now since it's the main provider for polling
+	rows, err := r.queries.GetActiveBucketsByProvider(ctx, "SPORTYBET")
+	if err != nil {
+		return nil, err
+	}
+	var matches []worker.PendingMatch
+	for _, row := range rows {
+		matches = append(matches, worker.PendingMatch{
+			MatchID:    row.ID,
+			ProviderID: row.ProviderID,
+		})
+	}
+	return matches, nil
 }
 
 // Helpers

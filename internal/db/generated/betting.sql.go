@@ -211,6 +211,38 @@ func (q *Queries) GetActiveBucketsByProvider(ctx context.Context, provider strin
 	return items, nil
 }
 
+const getPendingBucketsForMatch = `-- name: GetPendingBucketsForMatch :many
+SELECT DISTINCT market_type, market_spec, selection 
+FROM booking_selections 
+WHERE match_id = $1 AND status = 'PENDING'
+`
+
+type GetPendingBucketsForMatchRow struct {
+	MarketType string  `json:"market_type"`
+	MarketSpec *string `json:"market_spec"`
+	Selection  string  `json:"selection"`
+}
+
+func (q *Queries) GetPendingBucketsForMatch(ctx context.Context, matchID uuid.UUID) ([]GetPendingBucketsForMatchRow, error) {
+	rows, err := q.db.Query(ctx, getPendingBucketsForMatch, matchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetPendingBucketsForMatchRow{}
+	for rows.Next() {
+		var i GetPendingBucketsForMatchRow
+		if err := rows.Scan(&i.MarketType, &i.MarketSpec, &i.Selection); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTicketDetails = `-- name: GetTicketDetails :many
 SELECT 
     bs.id AS selection_id,

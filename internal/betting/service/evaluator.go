@@ -1,3 +1,4 @@
+// Package service implements the core business logic for betting operations.
 package service
 
 import (

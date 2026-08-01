@@ -1,54 +1,69 @@
-/**
- * Simple Cloudflare Worker to proxy GET requests to bypass CORS/IP bans.
- */
-
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-
-    // Only allow GET requests for the proxy
     if (request.method !== "GET") {
       return new Response("Method not allowed", { status: 405 });
     }
 
-    // Determine the target URL based on the path or query parameters.
-    // Example: /live could map to the SportyBet firehose endpoint.
+    const url = new URL(request.url);
     let targetUrl = "";
-    
+
     if (url.pathname === "/live") {
-      // Replace with actual SportyBet firehose URL
-      targetUrl = "https://api.sportybet.com/api/v1/live/matches"; 
-    } else if (url.searchParams.has("url")) {
-      targetUrl = url.searchParams.get("url");
+      targetUrl = "https://www.sportybet.com/api/ng/factsCenter/configurableLiveOrPrematchEvents?sportId=sr:sport:1";
+    } else if (url.pathname === "/ticket") {
+      const code = url.searchParams.get("code");
+      if (!code) return new Response("Missing code param", { status: 400 });
+      targetUrl = `https://www.sportybet.com/api/ng/orders/share/${code}?_t=${Date.now()}`;
     } else {
-      return new Response("Not found or invalid target", { status: 404 });
+      return new Response(JSON.stringify({
+        pathname: url.pathname,
+        search: url.search,
+        href: url.href,
+      }), { 
+        status: 404,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    // Check cache for live endpoint only
+    const cache = caches.default;
+    if (url.pathname === "/live") {
+      const cached = await cache.match(targetUrl);
+      if (cached) return cached;
     }
 
     try {
-      // Fetch data from the target URL
       const targetResponse = await fetch(targetUrl, {
         method: "GET",
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           "Accept": "application/json",
-          // Add other necessary headers for SportyBet
+          "Origin": "https://www.sportybet.com",
+          "Referer": "https://www.sportybet.com/ng/",
         },
       });
 
-      // Forward the response back to the client
-      const responseBody = await targetResponse.text();
-      
-      const headers = new Headers(targetResponse.headers);
-      // Ensure CORS headers are set so the Go backend or frontend can access it if needed
-      headers.set("Access-Control-Allow-Origin", "*");
-      
-      return new Response(responseBody, {
+      const body = await targetResponse.text();
+
+      const response = new Response(body, {
         status: targetResponse.status,
-        headers: headers,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": url.pathname === "/live" ? "max-age=60" : "no-store",
+        },
       });
 
+      if (url.pathname === "/live") {
+        ctx.waitUntil(cache.put(targetUrl, response.clone()));
+      }
+
+      return response;
+
     } catch (error) {
-      return new Response(`Error fetching target: ${error.message}`, { status: 500 });
+      return new Response(JSON.stringify({ error: error.message }), { 
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
     }
   },
 };

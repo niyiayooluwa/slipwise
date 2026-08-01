@@ -11,6 +11,7 @@ import (
 
 	"sportloga/internal/auth"
 	authhandler "sportloga/internal/auth/handler"
+	bettinghandler "sportloga/internal/betting/handler"
 
 	"github.com/go-chi/httprate"
 	"github.com/labstack/echo/v5"
@@ -22,7 +23,8 @@ import (
 // argument instead of growing a new parameter every time a module
 // (realtime, notifications, betting, ...) gets its own handler.
 type Handlers struct {
-	Auth *authhandler.AuthHandler
+	Auth    *authhandler.AuthHandler
+	Betting *bettinghandler.BettingHandler
 	// Realtime      *realtimehandler.RealtimeHandler
 	// Notifications *notificationshandler.NotificationsHandler
 }
@@ -53,10 +55,10 @@ func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string, t
 	authGroup := e.Group("/auth")
 	mountAuthRoutes(authGroup, h.Auth, e.IPExtractor)
 
-	// Protected routes, once a domain needs them:
-	// protectedGroup := e.Group("")
-	// protectedGroup.Use(auth.RequireAuth(jwtIssuer))
-	// mountRealtimeRoutes(protectedGroup.Group("/realtime"), h.Realtime)
+	// Protected routes behind JWT auth
+	protectedGroup := e.Group("")
+	protectedGroup.Use(auth.RequireAuth(jwtIssuer))
+	mountBettingRoutes(protectedGroup.Group("/v1/tickets"), h.Betting)
 
 	return e
 }
@@ -76,6 +78,16 @@ func mountAuthRoutes(g *echo.Group, h *authhandler.AuthHandler, extractor echo.I
 	g.POST("/oauth/google", h.GoogleLogin, loginRateLimit)
 	g.POST("/refresh", h.Refresh)
 	g.POST("/logout", h.Logout)
+}
+
+// mountBettingRoutes registers all /v1/tickets endpoints.
+// All routes here are behind the JWT auth middleware applied at the group level.
+func mountBettingRoutes(g *echo.Group, h *bettinghandler.BettingHandler) {
+	g.POST("/preview", h.Preview)
+	g.POST("/track", h.Track)
+	g.GET("", h.GetHistory)
+	g.GET("/:id", h.GetTicketDetails)
+	g.DELETE("/:id", h.DeleteTicket)
 }
 
 // buildIPExtractor returns the correct Echo IPExtractor for the given

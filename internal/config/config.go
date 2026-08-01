@@ -55,6 +55,8 @@ type Config struct {
 	// GoogleClientID is the OAuth client ID for the Flutter app.
 	// Used to verify ID tokens from Google Sign-In.
 	GoogleClientID string
+	// CloudflareWorkerURL is the URL of the Cloudflare worker proxy.
+	CloudflareWorkerURL string
 }
 
 // Load reads .env (if present) into the process environment, then
@@ -69,12 +71,13 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		DatabaseURL:       os.Getenv("DATABASE_URL"),
-		JWTSecret:         os.Getenv("JWT_SECRET"),
-		ResendAPIKey:      os.Getenv("RESEND_API_KEY"),
-		ResendFromAddress: os.Getenv("RESEND_FROM_ADDRESS"),
-		Port:              os.Getenv("PORT"),
-		GoogleClientID:    os.Getenv("GOOGLE_CLIENT_ID"),
+		DatabaseURL:         os.Getenv("DATABASE_URL"),
+		JWTSecret:           os.Getenv("JWT_SECRET"),
+		ResendAPIKey:        os.Getenv("RESEND_API_KEY"),
+		ResendFromAddress:   os.Getenv("RESEND_FROM_ADDRESS"),
+		Port:                os.Getenv("PORT"),
+		GoogleClientID:      os.Getenv("GOOGLE_CLIENT_ID"),
+		CloudflareWorkerURL: os.Getenv("CLOUDFLARE_WORKER_URL"),
 	}
 
 	if cfg.Port == "" {
@@ -92,11 +95,12 @@ func Load() (*Config, error) {
 	}
 
 	required := map[string]string{
-		"DATABASE_URL":        cfg.DatabaseURL,
-		"JWT_SECRET":          cfg.JWTSecret,
-		"RESEND_API_KEY":      cfg.ResendAPIKey,
-		"RESEND_FROM_ADDRESS": cfg.ResendFromAddress,
-		"GOOGLE_CLIENT_ID":    cfg.GoogleClientID,
+		"DATABASE_URL":          cfg.DatabaseURL,
+		"JWT_SECRET":            cfg.JWTSecret,
+		"RESEND_API_KEY":        cfg.ResendAPIKey,
+		"RESEND_FROM_ADDRESS":   cfg.ResendFromAddress,
+		"GOOGLE_CLIENT_ID":      cfg.GoogleClientID,
+		"CLOUDFLARE_WORKER_URL": cfg.CloudflareWorkerURL,
 	}
 
 	var missing []string

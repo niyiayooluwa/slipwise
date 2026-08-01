@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -12,6 +13,7 @@ import (
 // CloudflareClient defines the interface for communicating with the Cloudflare worker.
 type CloudflareClient interface {
 	FetchLiveMatches(ctx context.Context) ([]LiveMatch, error)
+	FetchTicketByCode(ctx context.Context, shareCode string) ([]byte, error)
 }
 
 // LiveMatch represents a live match fetched from the firehose.
@@ -55,4 +57,28 @@ func (c *cloudflareClientImpl) FetchLiveMatches(ctx context.Context) ([]LiveMatc
 	}
 
 	return matches, nil
+}
+
+func (c *cloudflareClientImpl) FetchTicketByCode(ctx context.Context, shareCode string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.workerURL+"/ticket?code="+shareCode, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch ticket by code: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	// Readall the body since it's just raw json to be unmarshaled by the translator
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	return data, nil
 }

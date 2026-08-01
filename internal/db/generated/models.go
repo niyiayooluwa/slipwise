@@ -20,24 +20,24 @@ type BookingCode struct {
 }
 
 type BookingSelection struct {
-	ID              uuid.UUID      `json:"id"`
-	BookingCodeID   uuid.UUID      `json:"booking_code_id"`
-	MatchID         uuid.UUID      `json:"match_id"`
-	MarketType      string         `json:"market_type"`
-	Selection       string         `json:"selection"`
-	Status          string         `json:"status"`
-	Provider        string         `json:"provider"`
-	ExternalMatchID string         `json:"external_match_id"`
-	MarketSpec      *string        `json:"market_spec"`
-	Odds            pgtype.Numeric `json:"odds"`
+	ID            uuid.UUID      `json:"id"`
+	BookingCodeID uuid.UUID      `json:"booking_code_id"`
+	MatchID       uuid.UUID      `json:"match_id"`
+	MarketType    string         `json:"market_type"`
+	Selection     string         `json:"selection"`
+	Status        string         `json:"status"`
+	MarketSpec    *string        `json:"market_spec"`
+	Odds          pgtype.Numeric `json:"odds"`
 }
 
 type Match struct {
-	ID        uuid.UUID          `json:"id"`
-	HomeTeam  string             `json:"home_team"`
-	AwayTeam  string             `json:"away_team"`
-	Status    string             `json:"status"`
-	StartTime pgtype.Timestamptz `json:"start_time"`
+	ID         uuid.UUID          `json:"id"`
+	HomeTeam   string             `json:"home_team"`
+	AwayTeam   string             `json:"away_team"`
+	Status     string             `json:"status"`
+	StartTime  pgtype.Timestamptz `json:"start_time"`
+	Provider   string             `json:"provider"`
+	ProviderID string             `json:"provider_id"`
 }
 
 type OauthConnection struct {

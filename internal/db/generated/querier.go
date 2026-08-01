@@ -20,7 +20,7 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateUserTicket(ctx context.Context, arg CreateUserTicketParams) (UserTicket, error)
 	// Used by the Background Poller to find out what matches to fetch
-	GetActiveBucketsByProvider(ctx context.Context, provider string) ([]string, error)
+	GetActiveBucketsByProvider(ctx context.Context, provider string) ([]GetActiveBucketsByProviderRow, error)
 	GetLatestOTP(ctx context.Context, arg GetLatestOTPParams) (OtpCode, error)
 	GetOAuthProvidersForUser(ctx context.Context, userID uuid.UUID) ([]string, error)
 	GetRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)

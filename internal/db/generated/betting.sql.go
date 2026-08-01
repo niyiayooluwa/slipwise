@@ -43,28 +43,24 @@ func (q *Queries) CreateBookingCode(ctx context.Context, arg CreateBookingCodePa
 }
 
 const createBookingSelection = `-- name: CreateBookingSelection :one
-INSERT INTO booking_selections (booking_code_id, match_id, provider, external_match_id, market_type, market_spec, selection, odds, status) 
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, booking_code_id, match_id, market_type, selection, status, provider, external_match_id, market_spec, odds
+INSERT INTO booking_selections (booking_code_id, match_id, market_type, market_spec, selection, odds, status) 
+VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, booking_code_id, match_id, market_type, selection, status, market_spec, odds
 `
 
 type CreateBookingSelectionParams struct {
-	BookingCodeID   uuid.UUID      `json:"booking_code_id"`
-	MatchID         uuid.UUID      `json:"match_id"`
-	Provider        string         `json:"provider"`
-	ExternalMatchID string         `json:"external_match_id"`
-	MarketType      string         `json:"market_type"`
-	MarketSpec      *string        `json:"market_spec"`
-	Selection       string         `json:"selection"`
-	Odds            pgtype.Numeric `json:"odds"`
-	Status          string         `json:"status"`
+	BookingCodeID uuid.UUID      `json:"booking_code_id"`
+	MatchID       uuid.UUID      `json:"match_id"`
+	MarketType    string         `json:"market_type"`
+	MarketSpec    *string        `json:"market_spec"`
+	Selection     string         `json:"selection"`
+	Odds          pgtype.Numeric `json:"odds"`
+	Status        string         `json:"status"`
 }
 
 func (q *Queries) CreateBookingSelection(ctx context.Context, arg CreateBookingSelectionParams) (BookingSelection, error) {
 	row := q.db.QueryRow(ctx, createBookingSelection,
 		arg.BookingCodeID,
 		arg.MatchID,
-		arg.Provider,
-		arg.ExternalMatchID,
 		arg.MarketType,
 		arg.MarketSpec,
 		arg.Selection,
@@ -79,8 +75,6 @@ func (q *Queries) CreateBookingSelection(ctx context.Context, arg CreateBookingS
 		&i.MarketType,
 		&i.Selection,
 		&i.Status,
-		&i.Provider,
-		&i.ExternalMatchID,
 		&i.MarketSpec,
 		&i.Odds,
 	)
@@ -88,15 +82,19 @@ func (q *Queries) CreateBookingSelection(ctx context.Context, arg CreateBookingS
 }
 
 const createMatch = `-- name: CreateMatch :one
-INSERT INTO matches (home_team, away_team, start_time, status) 
-VALUES ($1, $2, $3, $4) RETURNING id, home_team, away_team, status, start_time
+INSERT INTO matches (home_team, away_team, start_time, status, provider, provider_id) 
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (provider, provider_id) DO UPDATE SET status = EXCLUDED.status
+RETURNING id, home_team, away_team, status, start_time, provider, provider_id
 `
 
 type CreateMatchParams struct {
-	HomeTeam  string             `json:"home_team"`
-	AwayTeam  string             `json:"away_team"`
-	StartTime pgtype.Timestamptz `json:"start_time"`
-	Status    string             `json:"status"`
+	HomeTeam   string             `json:"home_team"`
+	AwayTeam   string             `json:"away_team"`
+	StartTime  pgtype.Timestamptz `json:"start_time"`
+	Status     string             `json:"status"`
+	Provider   string             `json:"provider"`
+	ProviderID string             `json:"provider_id"`
 }
 
 func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (Match, error) {
@@ -105,6 +103,8 @@ func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (Match
 		arg.AwayTeam,
 		arg.StartTime,
 		arg.Status,
+		arg.Provider,
+		arg.ProviderID,
 	)
 	var i Match
 	err := row.Scan(
@@ -113,6 +113,8 @@ func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (Match
 		&i.AwayTeam,
 		&i.Status,
 		&i.StartTime,
+		&i.Provider,
+		&i.ProviderID,
 	)
 	return i, err
 }
@@ -142,25 +144,31 @@ func (q *Queries) CreateUserTicket(ctx context.Context, arg CreateUserTicketPara
 }
 
 const getActiveBucketsByProvider = `-- name: GetActiveBucketsByProvider :many
-SELECT DISTINCT external_match_id 
-FROM booking_selections 
-WHERE provider = $1 AND status = 'PENDING'
+SELECT DISTINCT m.id, m.provider_id 
+FROM booking_selections bs
+JOIN matches m ON bs.match_id = m.id
+WHERE m.provider = $1 AND bs.status = 'PENDING'
 `
 
+type GetActiveBucketsByProviderRow struct {
+	ID         uuid.UUID `json:"id"`
+	ProviderID string    `json:"provider_id"`
+}
+
 // Used by the Background Poller to find out what matches to fetch
-func (q *Queries) GetActiveBucketsByProvider(ctx context.Context, provider string) ([]string, error) {
+func (q *Queries) GetActiveBucketsByProvider(ctx context.Context, provider string) ([]GetActiveBucketsByProviderRow, error) {
 	rows, err := q.db.Query(ctx, getActiveBucketsByProvider, provider)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []string{}
+	items := []GetActiveBucketsByProviderRow{}
 	for rows.Next() {
-		var external_match_id string
-		if err := rows.Scan(&external_match_id); err != nil {
+		var i GetActiveBucketsByProviderRow
+		if err := rows.Scan(&i.ID, &i.ProviderID); err != nil {
 			return nil, err
 		}
-		items = append(items, external_match_id)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -171,28 +179,25 @@ func (q *Queries) GetActiveBucketsByProvider(ctx context.Context, provider strin
 const updateSelectionStatus = `-- name: UpdateSelectionStatus :many
 UPDATE booking_selections 
 SET status = $1 
-WHERE provider = $2 
-  AND external_match_id = $3 
-  AND market_type = $4 
-  AND selection = $5 
+WHERE match_id = $2 
+  AND market_type = $3 
+  AND selection = $4 
   AND status = 'PENDING'
 RETURNING booking_code_id
 `
 
 type UpdateSelectionStatusParams struct {
-	Status          string `json:"status"`
-	Provider        string `json:"provider"`
-	ExternalMatchID string `json:"external_match_id"`
-	MarketType      string `json:"market_type"`
-	Selection       string `json:"selection"`
+	Status     string    `json:"status"`
+	MatchID    uuid.UUID `json:"match_id"`
+	MarketType string    `json:"market_type"`
+	Selection  string    `json:"selection"`
 }
 
 // The Fast Settlement query!
 func (q *Queries) UpdateSelectionStatus(ctx context.Context, arg UpdateSelectionStatusParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, updateSelectionStatus,
 		arg.Status,
-		arg.Provider,
-		arg.ExternalMatchID,
+		arg.MatchID,
 		arg.MarketType,
 		arg.Selection,
 	)

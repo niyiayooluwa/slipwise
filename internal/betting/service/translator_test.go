@@ -13,20 +13,24 @@ func TestTranslateSportyBet(t *testing.T) {
 			EstimateStartTime: 1785250800000,
 			Markets: []SportyBetMarket{
 				{
+					ID:        "m1",
 					Desc:      "Handicap 2:0",
 					Specifier: "hcp=2:0",
 					Outcomes: []SportyBetOutcome{
 						{
+							ID:   "o1",
 							Desc: "Home (2:0)",
 							Odds: "1.06",
 						},
 					},
 				},
 				{
+					ID:        "m2",
 					Desc:      "Over/Under",
 					Specifier: "total=2.5",
 					Outcomes: []SportyBetOutcome{
 						{
+							ID:   "o2",
 							Desc: "Over",
 							Odds: "1.80",
 						},
@@ -43,8 +47,8 @@ func TestTranslateSportyBet(t *testing.T) {
 		}{
 			Ticket: SportyBetTicket{
 				Selections: []SportyBetTicketSelection{
-					{EventID: "1", MarketID: "1", OutcomeID: "1"},
-					{EventID: "2", MarketID: "2", OutcomeID: "2"},
+					{EventID: "sr:match:72868102", MarketID: "m1", OutcomeID: "o1"},
+					{EventID: "sr:match:72868102", MarketID: "m2", OutcomeID: "o2"},
 				},
 			},
 			Outcomes: input,

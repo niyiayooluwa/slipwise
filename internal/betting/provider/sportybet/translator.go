@@ -1,11 +1,88 @@
+// Package sportybet provides translation logic for SportyBet JSON payloads.
 package sportybet
 
 import (
+	"context"
+	"encoding/json"
 	"strconv"
 	"strings"
+	"time"
 
 	"sportloga/internal/betting/domain"
 )
+
+// CloudflareClient is a local interface so the sportybet package does
+// not import the worker package directly.
+type CloudflareClient interface {
+	FetchTicketByCode(ctx context.Context, shareCode string) ([]byte, error)
+}
+
+// Provider implements service.TicketProvider for SportyBet.
+type Provider struct {
+	client CloudflareClient
+}
+
+// NewProvider creates a new SportyBet provider.
+func NewProvider(client CloudflareClient) *Provider {
+	return &Provider{client: client}
+}
+
+// FetchAndParse fetches raw JSON via the Cloudflare proxy and translates
+// it into a domain.SportlogaTicket. No DB interaction.
+func (p *Provider) FetchAndParse(ctx context.Context, shareCode string) (*domain.SportlogaTicket, error) {
+	rawJSON, err := p.client.FetchTicketByCode(ctx, shareCode)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload SportyBetPayload
+	if err := json.Unmarshal(rawJSON, &payload); err != nil {
+		return nil, err
+	}
+
+	matches, bookingSelections := TranslateSportyBet(payload)
+
+	totalOdds := 1.0
+
+	var ticketSelections []domain.TicketSelection
+	for _, sel := range bookingSelections {
+		totalOdds *= sel.Odds
+
+		var matchDetails domain.MatchDetails
+		for _, m := range matches {
+			if m.ExternalMatchID == sel.ExternalMatchID {
+				matchDetails = domain.MatchDetails{
+					HomeTeam:  m.HomeTeam,
+					AwayTeam:  m.AwayTeam,
+					StartTime: time.UnixMilli(m.StartTime),
+				}
+				break
+			}
+		}
+
+		var spec *string
+		if sel.MarketSpec != "" {
+			s := sel.MarketSpec
+			spec = &s
+		}
+
+		ticketSelections = append(ticketSelections, domain.TicketSelection{
+			Match:           matchDetails,
+			ExternalMatchID: sel.ExternalMatchID,
+			MarketType:      sel.MarketType,
+			MarketSpec:      spec,
+			Selection:       sel.Selection,
+			Odds:            sel.Odds,
+		})
+	}
+
+	return &domain.SportlogaTicket{
+		Provider:   "SPORTYBET",
+		Code:       shareCode,
+		TotalOdds:  totalOdds,
+		Selections: ticketSelections,
+	}, nil
+}
 
 type SportyBetTicketSelection struct {
 	EventID   string `json:"eventId"`
@@ -82,7 +159,7 @@ func TranslateSportyBet(payload SportyBetPayload) ([]domain.Match, []domain.Book
 
 		// Find the correct market and outcome metadata
 		var mType, mSpec, selectionName string
-		var odds float64 = 1.0
+		var odds = 1.0
 
 		for _, market := range item.Markets {
 			if market.ID == sel.MarketID {

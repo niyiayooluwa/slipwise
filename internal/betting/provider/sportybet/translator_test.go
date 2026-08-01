@@ -1,6 +1,7 @@
 package sportybet
 
 import (
+	"context"
 	"testing"
 )
 
@@ -89,5 +90,41 @@ func TestTranslateSportyBet(t *testing.T) {
 	}
 	if sel2.Selection != "OVER" {
 		t.Errorf("unexpected pick: %s", sel2.Selection)
+	}
+}
+
+type fakeCloudflareClient struct {
+	response []byte
+	err      error
+}
+
+func (f *fakeCloudflareClient) FetchTicketByCode(ctx context.Context, shareCode string) ([]byte, error) {
+	return f.response, f.err
+}
+
+func TestFetchAndParse_Success(t *testing.T) {
+	jsonPayload := []byte(`{"data":{"ticket":{"selections":[]},"outcomes":[]}}`)
+	client := &fakeCloudflareClient{response: jsonPayload}
+	provider := NewProvider(client)
+
+	ticket, err := provider.FetchAndParse(context.Background(), "J6J2TN")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if ticket.Code != "J6J2TN" {
+		t.Errorf("expected code J6J2TN, got %s", ticket.Code)
+	}
+	if ticket.Provider != "SPORTYBET" {
+		t.Errorf("expected provider SPORTYBET, got %s", ticket.Provider)
+	}
+}
+
+func TestFetchAndParse_InvalidJSON(t *testing.T) {
+	client := &fakeCloudflareClient{response: []byte("invalid json")}
+	provider := NewProvider(client)
+
+	_, err := provider.FetchAndParse(context.Background(), "J6J2TN")
+	if err == nil {
+		t.Fatalf("expected error, got nil")
 	}
 }

@@ -1,3 +1,4 @@
+// Package worker handles background tasks and external integrations like Cloudflare.
 package worker
 
 import (

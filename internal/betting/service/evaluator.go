@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"sportloga/internal/betting/domain"
 )
 
 type MatchScore struct {
@@ -14,7 +16,7 @@ type MatchScore struct {
 }
 
 // EvaluateSelection evaluates a single booking selection based on the match scores.
-func EvaluateSelection(sel BookingSelection, score MatchScore) string {
+func EvaluateSelection(sel domain.BookingSelection, score MatchScore) string {
 	home := score.HomeScoreFT
 	away := score.AwayScoreFT
 	homeHT := score.HomeScoreHT
@@ -23,33 +25,59 @@ func EvaluateSelection(sel BookingSelection, score MatchScore) string {
 
 	switch sel.MarketType {
 	case "MATCH_RESULT":
-		if home > away && sel.Selection == "1" { return "WON" }
-		if home == away && sel.Selection == "X" { return "WON" }
-		if home < away && sel.Selection == "2" { return "WON" }
+		if home > away && sel.Selection == "1" {
+			return "WON"
+		}
+		if home == away && sel.Selection == "X" {
+			return "WON"
+		}
+		if home < away && sel.Selection == "2" {
+			return "WON"
+		}
 		return "LOST"
 
 	case "DOUBLE_CHANCE":
-		if (home > away || home == away) && sel.Selection == "1X" { return "WON" }
-		if (home > away || home < away) && sel.Selection == "12" { return "WON" }
-		if (home < away || home == away) && sel.Selection == "X2" { return "WON" }
+		if (home > away || home == away) && sel.Selection == "1X" {
+			return "WON"
+		}
+		if (home > away || home < away) && sel.Selection == "12" {
+			return "WON"
+		}
+		if (home < away || home == away) && sel.Selection == "X2" {
+			return "WON"
+		}
 		return "LOST"
 
 	case "DRAW_NO_BET":
-		if home == away { return "VOID" }
-		if home > away && sel.Selection == "1" { return "WON" }
-		if home < away && sel.Selection == "2" { return "WON" }
+		if home == away {
+			return "VOID"
+		}
+		if home > away && sel.Selection == "1" {
+			return "WON"
+		}
+		if home < away && sel.Selection == "2" {
+			return "WON"
+		}
 		return "LOST"
 
 	case "OVER_UNDER":
 		spec, _ := strconv.ParseFloat(sel.MarketSpec, 64)
-		if float64(total) > spec && sel.Selection == "OVER" { return "WON" }
-		if float64(total) < spec && sel.Selection == "UNDER" { return "WON" }
+		if float64(total) > spec && sel.Selection == "OVER" {
+			return "WON"
+		}
+		if float64(total) < spec && sel.Selection == "UNDER" {
+			return "WON"
+		}
 		return "LOST"
 
 	case "BTTS":
 		btts := (home > 0 && away > 0)
-		if btts && sel.Selection == "YES" { return "WON" }
-		if !btts && sel.Selection == "NO" { return "WON" }
+		if btts && sel.Selection == "YES" {
+			return "WON"
+		}
+		if !btts && sel.Selection == "NO" {
+			return "WON"
+		}
 		return "LOST"
 
 	case "CORRECT_SCORE":
@@ -69,9 +97,15 @@ func EvaluateSelection(sel BookingSelection, score MatchScore) string {
 		adjHome := float64(home) + hcpHome
 		adjAway := float64(away) + hcpAway
 
-		if adjHome > adjAway && sel.Selection == "1" { return "WON" }
-		if adjHome == adjAway && sel.Selection == "X" { return "WON" }
-		if adjHome < adjAway && sel.Selection == "2" { return "WON" }
+		if adjHome > adjAway && sel.Selection == "1" {
+			return "WON"
+		}
+		if adjHome == adjAway && sel.Selection == "X" {
+			return "WON"
+		}
+		if adjHome < adjAway && sel.Selection == "2" {
+			return "WON"
+		}
 		return "LOST"
 
 	case "ASIAN_HANDICAP":
@@ -83,54 +117,104 @@ func EvaluateSelection(sel BookingSelection, score MatchScore) string {
 			diff = float64(away) + hcp - float64(home)
 		}
 
-		if diff >= 0.5 { return "WON" }
-		if diff == 0.25 { return "HALF_WON" }
-		if diff == 0 { return "VOID" }
-		if diff == -0.25 { return "HALF_LOST" }
-		if diff <= -0.5 { return "LOST" }
+		if diff >= 0.5 {
+			return "WON"
+		}
+		if diff == 0.25 {
+			return "HALF_WON"
+		}
+		if diff == 0 {
+			return "VOID"
+		}
+		if diff == -0.25 {
+			return "HALF_LOST"
+		}
+		if diff <= -0.5 {
+			return "LOST"
+		}
 		return "LOST"
 
 	case "ASIAN_OVER_UNDER":
 		spec, _ := strconv.ParseFloat(sel.MarketSpec, 64)
 		diff := float64(total) - spec
 		if sel.Selection == "OVER" {
-			if diff >= 0.5 { return "WON" }
-			if diff == 0.25 { return "HALF_WON" }
-			if diff == 0 { return "VOID" }
-			if diff == -0.25 { return "HALF_LOST" }
-			if diff <= -0.5 { return "LOST" }
+			if diff >= 0.5 {
+				return "WON"
+			}
+			if diff == 0.25 {
+				return "HALF_WON"
+			}
+			if diff == 0 {
+				return "VOID"
+			}
+			if diff == -0.25 {
+				return "HALF_LOST"
+			}
+			if diff <= -0.5 {
+				return "LOST"
+			}
 			return "LOST"
 		} else if sel.Selection == "UNDER" {
-			if diff <= -0.5 { return "WON" }
-			if diff == -0.25 { return "HALF_WON" }
-			if diff == 0 { return "VOID" }
-			if diff == 0.25 { return "HALF_LOST" }
-			if diff >= 0.5 { return "LOST" }
+			if diff <= -0.5 {
+				return "WON"
+			}
+			if diff == -0.25 {
+				return "HALF_WON"
+			}
+			if diff == 0 {
+				return "VOID"
+			}
+			if diff == 0.25 {
+				return "HALF_LOST"
+			}
+			if diff >= 0.5 {
+				return "LOST"
+			}
 			return "LOST"
 		}
 
 	case "HOME_NO_BET":
-		if home > away { return "VOID" }
-		if home == away && sel.Selection == "X" { return "WON" }
-		if home < away && sel.Selection == "2" { return "WON" }
+		if home > away {
+			return "VOID"
+		}
+		if home == away && sel.Selection == "X" {
+			return "WON"
+		}
+		if home < away && sel.Selection == "2" {
+			return "WON"
+		}
 		return "LOST"
 
 	case "AWAY_NO_BET":
-		if home < away { return "VOID" }
-		if home > away && sel.Selection == "1" { return "WON" }
-		if home == away && sel.Selection == "X" { return "WON" }
+		if home < away {
+			return "VOID"
+		}
+		if home > away && sel.Selection == "1" {
+			return "WON"
+		}
+		if home == away && sel.Selection == "X" {
+			return "WON"
+		}
 		return "LOST"
 
 	case "HOME_OVER_UNDER":
 		spec, _ := strconv.ParseFloat(sel.MarketSpec, 64)
-		if float64(home) > spec && sel.Selection == "OVER" { return "WON" }
-		if float64(home) < spec && sel.Selection == "UNDER" { return "WON" }
+		if float64(home) > spec && sel.Selection == "OVER" {
+			return "WON"
+		}
+		if float64(home) < spec && sel.Selection == "UNDER" {
+			return "WON"
+		}
 		return "LOST"
 
 	case "AWAY_OVER_UNDER":
 		spec, _ := strconv.ParseFloat(sel.MarketSpec, 64)
-		if float64(away) > spec && sel.Selection == "OVER" { return "WON" }
-		if float64(away) < spec && sel.Selection == "UNDER" { return "WON" }
+		if float64(away) > spec && sel.Selection == "OVER" {
+			return "WON"
+		}
+		if float64(away) < spec && sel.Selection == "UNDER" {
+			return "WON"
+		}
 		return "LOST"
 
 	case "EXACT_GOALS":
@@ -138,24 +222,40 @@ func EvaluateSelection(sel BookingSelection, score MatchScore) string {
 		if total >= 5 {
 			expected = "5+"
 		}
-		if sel.Selection == expected || sel.MarketSpec == expected { return "WON" }
+		if sel.Selection == expected || sel.MarketSpec == expected {
+			return "WON"
+		}
 		// support exact number matching
-		if sel.Selection == strconv.Itoa(total) || sel.MarketSpec == strconv.Itoa(total) { return "WON" }
+		if sel.Selection == strconv.Itoa(total) || sel.MarketSpec == strconv.Itoa(total) {
+			return "WON"
+		}
 		return "LOST"
 
 	case "GG2+":
-		if home >= 2 && away >= 2 && sel.Selection == "YES" { return "WON" }
+		if home >= 2 && away >= 2 && sel.Selection == "YES" {
+			return "WON"
+		}
 		return "LOST"
 
 	case "HT_FT":
 		htRes := "X"
-		if homeHT > awayHT { htRes = "1" } else if homeHT < awayHT { htRes = "2" }
+		if homeHT > awayHT {
+			htRes = "1"
+		} else if homeHT < awayHT {
+			htRes = "2"
+		}
 
 		ftRes := "X"
-		if home > away { ftRes = "1" } else if home < away { ftRes = "2" }
+		if home > away {
+			ftRes = "1"
+		} else if home < away {
+			ftRes = "2"
+		}
 
 		actual := htRes + "/" + ftRes
-		if sel.Selection == actual || sel.MarketSpec == actual || sel.Selection == (htRes+ftRes) { return "WON" }
+		if sel.Selection == actual || sel.MarketSpec == actual || sel.Selection == (htRes+ftRes) {
+			return "WON"
+		}
 		return "LOST"
 	}
 

@@ -1,4 +1,4 @@
-package service
+package sportybet
 
 import (
 	"testing"
@@ -65,7 +65,7 @@ func TestTranslateSportyBet(t *testing.T) {
 	if len(selections) != 2 {
 		t.Fatalf("expected 2 selections, got %d", len(selections))
 	}
-	
+
 	sel1 := selections[0]
 	if sel1.MarketType != "HANDICAP" {
 		t.Errorf("unexpected market type: %s", sel1.MarketType)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"github.com/google/uuid"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -56,29 +57,29 @@ func (r *Repository) SaveFullTicket(ctx context.Context, ticket domain.Sportloga
 
 	// Create matches and selections
 	for _, sel := range ticket.Selections {
-		// Attempt to create match. 
+		// Attempt to create match.
 		// Note: In a real system, we'd check if match already exists by some external ID.
 		// For the MVP plan, we just create it as requested.
 		match, err := q.CreateMatch(ctx, db.CreateMatchParams{
-			HomeTeam:  sel.Match.HomeTeam,
-			AwayTeam:  sel.Match.AwayTeam,
-			StartTime: pgtype.Timestamptz{Time: sel.Match.StartTime, Valid: true},
-			Status:    "PENDING",
+			HomeTeam:   sel.Match.HomeTeam,
+			AwayTeam:   sel.Match.AwayTeam,
+			StartTime:  pgtype.Timestamptz{Time: sel.Match.StartTime, Valid: true},
+			Status:     "PENDING",
+			Provider:   ticket.Provider,
+			ProviderID: sel.ExternalMatchID,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create match: %w", err)
 		}
 
 		_, err = q.CreateBookingSelection(ctx, db.CreateBookingSelectionParams{
-			BookingCodeID:   bc.ID,
-			MatchID:         match.ID,
-			Provider:        ticket.Provider,
-			ExternalMatchID: sel.ExternalMatchID,
-			MarketType:      sel.MarketType,
-			MarketSpec:      sel.MarketSpec,
-			Selection:       sel.Selection,
-			Odds:            floatToNumeric(sel.Odds),
-			Status:          "PENDING",
+			BookingCodeID: bc.ID,
+			MatchID:       match.ID,
+			MarketType:    sel.MarketType,
+			MarketSpec:    sel.MarketSpec,
+			Selection:     sel.Selection,
+			Odds:          floatToNumeric(sel.Odds),
+			Status:        "PENDING",
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create booking selection: %w", err)
@@ -92,9 +93,12 @@ func (r *Repository) SaveFullTicket(ctx context.Context, ticket domain.Sportloga
 	return nil
 }
 
-// Queries exposes the raw queries for use outside of this package (e.g. UpdateSelectionStatus)
-func (r *Repository) Queries() *db.Queries {
-	return r.queries
+func (r *Repository) UpdateSelectionStatus(ctx context.Context, arg db.UpdateSelectionStatusParams) ([]uuid.UUID, error) {
+	return r.queries.UpdateSelectionStatus(ctx, arg)
+}
+
+func (r *Repository) GetActiveBucketsByProvider(ctx context.Context, provider string) ([]db.GetActiveBucketsByProviderRow, error) {
+	return r.queries.GetActiveBucketsByProvider(ctx, provider)
 }
 
 // Helper to convert float64 to pgtype.Numeric

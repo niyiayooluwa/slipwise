@@ -1,26 +1,11 @@
-package service
+package sportybet
 
 import (
 	"strconv"
 	"strings"
+
+	"sportloga/internal/betting/domain"
 )
-
-type Match struct {
-	ExternalMatchID string
-	HomeTeam        string
-	AwayTeam        string
-	StartTime       int64
-}
-
-type BookingSelection struct {
-	Provider        string
-	ExternalMatchID string
-	MarketType      string
-	MarketSpec      string
-	Selection       string
-	Odds            float64
-	Status          string
-}
 
 type SportyBetTicketSelection struct {
 	EventID   string `json:"eventId"`
@@ -64,9 +49,9 @@ type SportyBetPayload struct {
 }
 
 // TranslateSportyBet maps SportyBet JSON directly to MVP Database Schema.
-func TranslateSportyBet(payload SportyBetPayload) ([]Match, []BookingSelection) {
-	var matches []Match
-	var selections []BookingSelection
+func TranslateSportyBet(payload SportyBetPayload) ([]domain.Match, []domain.BookingSelection) {
+	var matches []domain.Match
+	var selections []domain.BookingSelection
 
 	// Build a lookup map for outcomes (metadata)
 	outcomeMap := make(map[string]SportyBetItem)
@@ -86,7 +71,7 @@ func TranslateSportyBet(payload SportyBetPayload) ([]Match, []BookingSelection) 
 
 		// Add unique matches
 		if !seenMatches[item.EventID] {
-			matches = append(matches, Match{
+			matches = append(matches, domain.Match{
 				ExternalMatchID: item.EventID,
 				HomeTeam:        item.HomeTeamName,
 				AwayTeam:        item.AwayTeamName,
@@ -124,7 +109,7 @@ func TranslateSportyBet(payload SportyBetPayload) ([]Match, []BookingSelection) 
 			}
 		}
 
-		selections = append(selections, BookingSelection{
+		selections = append(selections, domain.BookingSelection{
 			Provider:        "SPORTYBET",
 			ExternalMatchID: sel.EventID,
 			MarketType:      mType,
@@ -187,7 +172,7 @@ func CleanSpecifier(spec string) string {
 
 func MapSelection(desc string) string {
 	lower := strings.ToLower(desc)
-	
+
 	// String mapping fixed: Avoid false positives like "Home Over 1.5" mapping to "1"
 	if lower == "1" || lower == "home" {
 		return "1"

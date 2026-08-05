@@ -16,6 +16,8 @@ import (
 	"sportloga/internal/auth/model"
 	"sportloga/internal/auth/service"
 
+	"github.com/google/uuid"
+
 	"github.com/labstack/echo/v5"
 )
 
@@ -291,6 +293,47 @@ func (h *AuthHandler) GoogleLogin(c *echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: err.Error()})
 	default:
 		slog.Error("auth handler error", "endpoint", "google-login", "error", err)
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
+	}
+}
+
+// Me godoc
+// @Summary      Fetch the authenticated user's profile
+// @Description  Returns the public profile fields of the currently logged-in user.
+// @Description  Requires a valid Bearer token in the Authorization header.
+// @Tags         auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200 {object} model.UserProfileResponse
+// @Failure      401 {object} apitypes.ErrorResponse "missing or invalid token"
+// @Failure      404 {object} apitypes.ErrorResponse "user not found"
+// @Failure      500 {object} apitypes.ErrorResponse "internal error"
+// @Router       /auth/me [get]
+func (h *AuthHandler) Me(c *echo.Context) error {
+	userIDStr, ok := c.Get("userID").(string)
+	if !ok || userIDStr == "" {
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
+	}
+
+	profile, err := h.svc.GetProfile(c.Request().Context(), userID)
+	switch {
+	case err == nil:
+		return c.JSON(http.StatusOK, model.UserProfileResponse{
+			ID:         profile.ID.String(),
+			FirstName:  profile.FirstName,
+			LastName:   profile.LastName,
+			Email:      profile.Email,
+			IsVerified: profile.IsVerified,
+		})
+	case errors.Is(err, service.ErrUserNotFound):
+		return c.JSON(http.StatusNotFound, apitypes.ErrorResponse{Error: err.Error()})
+	default:
+		slog.Error("auth handler error", "endpoint", "me", "error", err)
 		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
 	}
 }

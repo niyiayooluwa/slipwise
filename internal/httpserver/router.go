@@ -52,8 +52,13 @@ func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string, t
 
 	e.GET("/swagger/*", echo.WrapHandler(httpSwagger.WrapHandler))
 
+	// Health check — unauthenticated, used by load balancers and uptime monitors.
+	e.GET("/health", func(c *echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+	})
+
 	authGroup := e.Group("/auth")
-	mountAuthRoutes(authGroup, h.Auth, e.IPExtractor)
+	mountAuthRoutes(authGroup, h.Auth, e.IPExtractor, jwtIssuer)
 
 	// Protected routes behind JWT auth
 	protectedGroup := e.Group("")
@@ -66,7 +71,7 @@ func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string, t
 // mountAuthRoutes registers all /auth endpoints.
 // The IPExtractor is passed through so clientIPKey uses the same
 // proxy-aware IP resolution as the rest of the server.
-func mountAuthRoutes(g *echo.Group, h *authhandler.AuthHandler, extractor echo.IPExtractor) {
+func mountAuthRoutes(g *echo.Group, h *authhandler.AuthHandler, extractor echo.IPExtractor, jwtIssuer *auth.JWTIssuer) {
 	loginRateLimit := echo.WrapMiddleware(
 		httprate.LimitBy(5, time.Minute, clientIPKey(extractor)),
 	)
@@ -78,6 +83,10 @@ func mountAuthRoutes(g *echo.Group, h *authhandler.AuthHandler, extractor echo.I
 	g.POST("/oauth/google", h.GoogleLogin, loginRateLimit)
 	g.POST("/refresh", h.Refresh)
 	g.POST("/logout", h.Logout)
+
+	// Protected auth routes — require a valid JWT.
+	protected := g.Group("", auth.RequireAuth(jwtIssuer))
+	protected.GET("/me", h.Me)
 }
 
 // mountBettingRoutes registers all /v1/tickets endpoints.

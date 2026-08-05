@@ -86,3 +86,18 @@ type OAuthLoginRequest struct {
 	// IDToken is the JWT issued by the provider (e.g., Google or Apple).
 	IDToken string `json:"id_token" validate:"required"`
 } // @name OAuthLoginRequest
+
+// UserProfileResponse is returned by GET /auth/me.
+// It contains the public-facing fields of the authenticated user.
+type UserProfileResponse struct {
+	// ID is the user's unique identifier.
+	ID string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	// FirstName is the user's first name.
+	FirstName string `json:"first_name" example:"John"`
+	// LastName is the user's last name.
+	LastName string `json:"last_name" example:"Doe"`
+	// Email is the user's email address.
+	Email string `json:"email" example:"user@example.com"`
+	// IsVerified indicates whether the user has confirmed their email.
+	IsVerified bool `json:"is_verified" example:"true"`
+} // @name UserProfileResponse

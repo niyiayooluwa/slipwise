@@ -15,6 +15,8 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/api/idtoken"
+
+	db "sportloga/internal/db/generated"
 )
 
 // otpTTL is how long a signup OTP stays valid after issuance.
@@ -55,6 +57,16 @@ type Mailer interface {
 type TokenPair struct {
 	AccessToken  string
 	RefreshToken string
+}
+
+// UserProfile is the service-layer user shape returned to the handler.
+// It deliberately does not expose the password hash or internal DB types.
+type UserProfile struct {
+	ID         uuid.UUID
+	FirstName  string
+	LastName   string
+	Email      string
+	IsVerified bool
 }
 
 // AuthService implements signup/verify/login/refresh/logout. Construct
@@ -309,3 +321,31 @@ func (s *AuthService) LoginWithGoogle(ctx context.Context, idToken string) (Toke
 
 	return s.issueTokenPair(ctx, user.ID)
 }
+
+// GetProfile fetches the public profile of the authenticated user by their ID.
+// Returns ErrUserNotFound if no user row exists for the given ID.
+func (s *AuthService) GetProfile(ctx context.Context, userID uuid.UUID) (UserProfile, error) {
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return UserProfile{}, ErrUserNotFound
+	}
+	return UserProfile{
+		ID:         user.ID,
+		FirstName:  strPtrVal(user.FirstName),
+		LastName:   strPtrVal(user.LastName),
+		Email:      user.Email,
+		IsVerified: user.EmailVerifiedAt != nil,
+	}, nil
+}
+
+// strPtrVal safely dereferences a *string, returning "" if nil.
+func strPtrVal(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// Ensure db is used — the import is needed for CreateUser etc. called via repo,
+// but also referenced here to avoid a blank import.
+var _ db.User

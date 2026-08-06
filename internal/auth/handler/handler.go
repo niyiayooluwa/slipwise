@@ -310,13 +310,8 @@ func (h *AuthHandler) GoogleLogin(c *echo.Context) error {
 // @Failure      500 {object} apitypes.ErrorResponse "internal error"
 // @Router       /auth/me [get]
 func (h *AuthHandler) Me(c *echo.Context) error {
-	userIDStr, ok := c.Get("userID").(string)
-	if !ok || userIDStr == "" {
-		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
-	}
-
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
+	userID, ok := c.Get("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
 		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
 	}
 

@@ -80,13 +80,9 @@ func (h *BettingHandler) Preview(c *echo.Context) error {
 // @Failure 500 {object} map[string]string
 // @Router /v1/tickets/track [post]
 func (h *BettingHandler) Track(c *echo.Context) error {
-	userIDStr, ok := c.Get("userID").(string)
-	if !ok || userIDStr == "" {
+	userID, ok := c.Get("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-	}
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid user id"})
 	}
 
 	var req model.TrackRequest
@@ -117,13 +113,9 @@ func (h *BettingHandler) Track(c *echo.Context) error {
 // @Failure 500 {object} map[string]string
 // @Router /v1/tickets [get]
 func (h *BettingHandler) GetHistory(c *echo.Context) error {
-	userIDStr, ok := c.Get("userID").(string)
-	if !ok || userIDStr == "" {
+	userID, ok := c.Get("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-	}
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid user id"})
 	}
 
 	history, err := h.svc.GetHistory(c.Request().Context(), userID)
@@ -150,13 +142,9 @@ func (h *BettingHandler) GetHistory(c *echo.Context) error {
 // @Failure 500 {object} map[string]string
 // @Router /v1/tickets/{id} [get]
 func (h *BettingHandler) GetTicketDetails(c *echo.Context) error {
-	userIDStr, ok := c.Get("userID").(string)
-	if !ok || userIDStr == "" {
+	userID, ok := c.Get("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-	}
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid user id"})
 	}
 
 	ticketIDStr := c.Param("id")
@@ -188,13 +176,9 @@ func (h *BettingHandler) GetTicketDetails(c *echo.Context) error {
 // @Failure 500 {object} map[string]string
 // @Router /v1/tickets/{id} [delete]
 func (h *BettingHandler) DeleteTicket(c *echo.Context) error {
-	userIDStr, ok := c.Get("userID").(string)
-	if !ok || userIDStr == "" {
+	userID, ok := c.Get("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
-	}
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid user id"})
 	}
 
 	ticketIDStr := c.Param("id")

@@ -61,10 +61,10 @@ func main() {
 	queries := db.New(pool)
 
 	jwtIssuer := auth.NewJWTIssuer(cfg.JWTSecret)
-	resendMailer := mailer.NewResendMailer(cfg.ResendAPIKey, cfg.ResendFromAddress)
+	gmailMailer := mailer.NewGmailMailer(cfg.GmailUser, cfg.GmailAppPassword)
 
 	authRepo := repository.NewAuthRepository(queries)
-	authSvc := authservice.NewAuthService(authRepo, jwtIssuer, resendMailer, cfg.GoogleClientID)
+	authSvc := authservice.NewAuthService(authRepo, jwtIssuer, gmailMailer, cfg.GoogleClientID)
 	authH := authhandler.NewAuthHandler(authSvc)
 
 	// Betting module

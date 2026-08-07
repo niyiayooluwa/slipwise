@@ -42,3 +42,16 @@ UPDATE refresh_tokens SET revoked_at = now() WHERE id = $1;
 
 -- name: RevokeAllUserRefreshTokens :exec
 UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL;
+
+-- name: UpdateUserPassword :exec
+UPDATE users SET password_hash = $1, updated_at = now() WHERE email = $2;
+
+-- name: UpdateUserProfile :one
+UPDATE users
+SET 
+  first_name = COALESCE(sqlc.narg('first_name'), first_name),
+  last_name = COALESCE(sqlc.narg('last_name'), last_name),
+  username = COALESCE(sqlc.narg('username'), username),
+  updated_at = now()
+WHERE id = sqlc.arg('id')
+RETURNING *;

@@ -28,11 +28,10 @@ type Config struct {
 	// JWTSecret signs and verifies access tokens. Must be a real
 	// generated secret in staging/prod, not a dev placeholder.
 	JWTSecret string
-	// ResendAPIKey authenticates outbound OTP emails.
-	ResendAPIKey string
-	// ResendFromAddress must be on a domain verified in the Resend
-	// dashboard, or sends fail — see internal/mailer for details.
-	ResendFromAddress string
+	// GmailUser is the Gmail address used for sending OTPs.
+	GmailUser string
+	// GmailAppPassword is a 16-character App Password, NOT the standard account password.
+	GmailAppPassword string
 	// Port is the HTTP port the server listens on. Optional — defaults
 	// to "8080" if unset, since a missing PORT shouldn't be fatal the
 	// way a missing DATABASE_URL is.
@@ -73,8 +72,8 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		DatabaseURL:         os.Getenv("DATABASE_URL"),
 		JWTSecret:           os.Getenv("JWT_SECRET"),
-		ResendAPIKey:        os.Getenv("RESEND_API_KEY"),
-		ResendFromAddress:   os.Getenv("RESEND_FROM_ADDRESS"),
+		GmailUser:           os.Getenv("GMAIL_USER"),
+		GmailAppPassword:    os.Getenv("GMAIL_APP_PASSWORD"),
 		Port:                os.Getenv("PORT"),
 		GoogleClientID:      os.Getenv("GOOGLE_CLIENT_ID"),
 		CloudflareWorkerURL: os.Getenv("CLOUDFLARE_WORKER_URL"),
@@ -97,8 +96,8 @@ func Load() (*Config, error) {
 	required := map[string]string{
 		"DATABASE_URL":          cfg.DatabaseURL,
 		"JWT_SECRET":            cfg.JWTSecret,
-		"RESEND_API_KEY":        cfg.ResendAPIKey,
-		"RESEND_FROM_ADDRESS":   cfg.ResendFromAddress,
+		"GMAIL_USER":            cfg.GmailUser,
+		"GMAIL_APP_PASSWORD":    cfg.GmailAppPassword,
 		"GOOGLE_CLIENT_ID":      cfg.GoogleClientID,
 		"CLOUDFLARE_WORKER_URL": cfg.CloudflareWorkerURL,
 	}

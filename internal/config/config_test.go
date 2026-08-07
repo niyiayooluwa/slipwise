@@ -14,8 +14,8 @@ import (
 func TestLoad_Success(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://localhost/test")
 	t.Setenv("JWT_SECRET", "test-secret")
-	t.Setenv("RESEND_API_KEY", "re_test")
-	t.Setenv("RESEND_FROM_ADDRESS", "Test <test@example.com>")
+	t.Setenv("GMAIL_USER", "test@gmail.com")
+	t.Setenv("GMAIL_APP_PASSWORD", "1234123412341234")
 	t.Setenv("GOOGLE_CLIENT_ID", "test")
 	t.Setenv("CLOUDFLARE_WORKER_URL", "https://worker.dev")
 	// PORT deliberately left unset to also exercise the default below.
@@ -37,8 +37,8 @@ func TestLoad_MissingVars(t *testing.T) {
 	// real environment this runs in) left something set.
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("JWT_SECRET", "")
-	t.Setenv("RESEND_API_KEY", "")
-	t.Setenv("RESEND_FROM_ADDRESS", "")
+	t.Setenv("GMAIL_USER", "")
+	t.Setenv("GMAIL_APP_PASSWORD", "")
 	t.Setenv("GOOGLE_CLIENT_ID", "")
 	t.Setenv("CLOUDFLARE_WORKER_URL", "")
 
@@ -50,7 +50,7 @@ func TestLoad_MissingVars(t *testing.T) {
 	// Check the error actually names what's missing, not just that
 	// something failed — this is what makes Load's error useful to a
 	// person reading it, and worth locking in with a test.
-	for _, want := range []string{"DATABASE_URL", "JWT_SECRET", "RESEND_API_KEY", "RESEND_FROM_ADDRESS", "GOOGLE_CLIENT_ID", "CLOUDFLARE_WORKER_URL"} {
+	for _, want := range []string{"DATABASE_URL", "JWT_SECRET", "GMAIL_USER", "GMAIL_APP_PASSWORD", "GOOGLE_CLIENT_ID", "CLOUDFLARE_WORKER_URL"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("expected error to mention %s, got: %v", want, err)
 		}
@@ -60,8 +60,8 @@ func TestLoad_MissingVars(t *testing.T) {
 func TestLoad_CustomPort(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://localhost/test")
 	t.Setenv("JWT_SECRET", "test-secret")
-	t.Setenv("RESEND_API_KEY", "re_test")
-	t.Setenv("RESEND_FROM_ADDRESS", "Test <test@example.com>")
+	t.Setenv("GMAIL_USER", "test@gmail.com")
+	t.Setenv("GMAIL_APP_PASSWORD", "1234123412341234")
 	t.Setenv("GOOGLE_CLIENT_ID", "test")
 	t.Setenv("CLOUDFLARE_WORKER_URL", "https://worker.dev")
 	t.Setenv("PORT", "9000")

@@ -39,6 +39,8 @@ type Querier interface {
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
 	// The Fast Settlement query!
 	UpdateSelectionStatus(ctx context.Context, arg UpdateSelectionStatusParams) ([]uuid.UUID, error)
+	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
+	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	UpsertUserTrack(ctx context.Context, arg UpsertUserTrackParams) (UserTicket, error)
 }
 

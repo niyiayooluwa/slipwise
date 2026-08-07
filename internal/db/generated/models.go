@@ -70,17 +70,18 @@ type RefreshToken struct {
 }
 
 type User struct {
-	ID              uuid.UUID  `json:"id"`
-	FirstName       *string    `json:"first_name"`
-	LastName        *string    `json:"last_name"`
-	Email           string     `json:"email"`
-	PasswordHash    *string    `json:"password_hash"`
-	EmailVerifiedAt *time.Time `json:"email_verified_at"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
-	IsAdmin         bool       `json:"is_admin"`
-	IsPunter        bool       `json:"is_punter"`
-	IsSuspended     bool       `json:"is_suspended"`
+	ID              uuid.UUID   `json:"id"`
+	FirstName       *string     `json:"first_name"`
+	LastName        *string     `json:"last_name"`
+	Email           string      `json:"email"`
+	PasswordHash    *string     `json:"password_hash"`
+	EmailVerifiedAt *time.Time  `json:"email_verified_at"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+	IsAdmin         bool        `json:"is_admin"`
+	IsPunter        bool        `json:"is_punter"`
+	IsSuspended     bool        `json:"is_suspended"`
+	Username        pgtype.Text `json:"username"`
 }
 
 type UserTicket struct {

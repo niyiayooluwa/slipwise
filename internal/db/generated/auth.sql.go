@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createOTP = `-- name: CreateOTP :one
@@ -76,7 +77,7 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (first_name, last_name, email, password_hash)
 VALUES ($1, $2, $3, $4)
-RETURNING id, first_name, last_name, email, password_hash, email_verified_at, created_at, updated_at, is_admin, is_punter, is_suspended
+RETURNING id, first_name, last_name, email, password_hash, email_verified_at, created_at, updated_at, is_admin, is_punter, is_suspended, username
 `
 
 type CreateUserParams struct {
@@ -106,6 +107,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.IsAdmin,
 		&i.IsPunter,
 		&i.IsSuspended,
+		&i.Username,
 	)
 	return i, err
 }
@@ -158,7 +160,7 @@ func (q *Queries) GetRefreshToken(ctx context.Context, tokenHash string) (Refres
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, first_name, last_name, email, password_hash, email_verified_at, created_at, updated_at, is_admin, is_punter, is_suspended FROM users WHERE email = $1
+SELECT id, first_name, last_name, email, password_hash, email_verified_at, created_at, updated_at, is_admin, is_punter, is_suspended, username FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -176,12 +178,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.IsAdmin,
 		&i.IsPunter,
 		&i.IsSuspended,
+		&i.Username,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, first_name, last_name, email, password_hash, email_verified_at, created_at, updated_at, is_admin, is_punter, is_suspended FROM users WHERE id = $1
+SELECT id, first_name, last_name, email, password_hash, email_verified_at, created_at, updated_at, is_admin, is_punter, is_suspended, username FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -199,6 +202,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.IsAdmin,
 		&i.IsPunter,
 		&i.IsSuspended,
+		&i.Username,
 	)
 	return i, err
 }
@@ -246,4 +250,61 @@ UPDATE refresh_tokens SET revoked_at = now() WHERE id = $1
 func (q *Queries) RevokeRefreshToken(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, revokeRefreshToken, id)
 	return err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :exec
+UPDATE users SET password_hash = $1, updated_at = now() WHERE email = $2
+`
+
+type UpdateUserPasswordParams struct {
+	PasswordHash *string `json:"password_hash"`
+	Email        string  `json:"email"`
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
+	_, err := q.db.Exec(ctx, updateUserPassword, arg.PasswordHash, arg.Email)
+	return err
+}
+
+const updateUserProfile = `-- name: UpdateUserProfile :one
+UPDATE users
+SET 
+  first_name = COALESCE($1, first_name),
+  last_name = COALESCE($2, last_name),
+  username = COALESCE($3, username),
+  updated_at = now()
+WHERE id = $4
+RETURNING id, first_name, last_name, email, password_hash, email_verified_at, created_at, updated_at, is_admin, is_punter, is_suspended, username
+`
+
+type UpdateUserProfileParams struct {
+	FirstName *string     `json:"first_name"`
+	LastName  *string     `json:"last_name"`
+	Username  pgtype.Text `json:"username"`
+	ID        uuid.UUID   `json:"id"`
+}
+
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserProfile,
+		arg.FirstName,
+		arg.LastName,
+		arg.Username,
+		arg.ID,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Email,
+		&i.PasswordHash,
+		&i.EmailVerifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IsAdmin,
+		&i.IsPunter,
+		&i.IsSuspended,
+		&i.Username,
+	)
+	return i, err
 }

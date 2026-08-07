@@ -52,7 +52,7 @@ func (q *Queries) GetOAuthProvidersForUser(ctx context.Context, userID uuid.UUID
 }
 
 const getUserByOAuthProvider = `-- name: GetUserByOAuthProvider :one
-SELECT u.id, u.first_name, u.last_name, u.email, u.password_hash, u.email_verified_at, u.created_at, u.updated_at, u.is_admin, u.is_punter, u.is_suspended 
+SELECT u.id, u.first_name, u.last_name, u.email, u.password_hash, u.email_verified_at, u.created_at, u.updated_at, u.is_admin, u.is_punter, u.is_suspended, u.username 
 FROM users u
 JOIN oauth_connections o ON u.id = o.user_id
 WHERE o.provider = $1 AND o.provider_user_id = $2
@@ -78,6 +78,7 @@ func (q *Queries) GetUserByOAuthProvider(ctx context.Context, arg GetUserByOAuth
 		&i.IsAdmin,
 		&i.IsPunter,
 		&i.IsSuspended,
+		&i.Username,
 	)
 	return i, err
 }

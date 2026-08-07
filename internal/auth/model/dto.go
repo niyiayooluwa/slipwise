@@ -96,8 +96,30 @@ type UserProfileResponse struct {
 	FirstName string `json:"first_name" example:"John"`
 	// LastName is the user's last name.
 	LastName string `json:"last_name" example:"Doe"`
+	// Username is the user's handle. Optional.
+	Username *string `json:"username" example:"johndoe99"`
 	// Email is the user's email address.
 	Email string `json:"email" example:"user@example.com"`
 	// IsVerified indicates whether the user has confirmed their email.
 	IsVerified bool `json:"is_verified" example:"true"`
 } // @name UserProfileResponse
+
+// ForgotPasswordRequest is the body for POST /auth/forgot-password.
+type ForgotPasswordRequest struct {
+	Email string `json:"email" example:"user@example.com"`
+} // @name ForgotPasswordRequest
+
+// ResetPasswordRequest is the body for POST /auth/reset-password.
+type ResetPasswordRequest struct {
+	Email       string `json:"email" example:"user@example.com"`
+	Code        string `json:"code" example:"123456"`
+	NewPassword string `json:"new_password" example:"new-secure-password"`
+} // @name ResetPasswordRequest
+
+// UpdateProfileRequest is the body for PATCH /auth/me.
+// All fields are optional.
+type UpdateProfileRequest struct {
+	FirstName *string `json:"first_name" example:"John"`
+	LastName  *string `json:"last_name" example:"Doe"`
+	Username  *string `json:"username" example:"johndoe99"`
+} // @name UpdateProfileRequest

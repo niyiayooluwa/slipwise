@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // AuthRepository is the persistence contract the auth service depends
@@ -21,9 +22,11 @@ import (
 // fake without spinning up Postgres.
 type AuthRepository interface {
 	CreateUser(ctx context.Context, firstName, lastName, email string, passwordHash *string) (db.User, error)
+	UpdateUserProfile(ctx context.Context, id uuid.UUID, firstName, lastName, username *string) (db.User, error)
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
 	MarkEmailVerified(ctx context.Context, userID uuid.UUID) error
+	UpdateUserPassword(ctx context.Context, email string, passwordHash *string) error
 
 	CreateOTP(ctx context.Context, email, codeHash, purpose string, expiresAt time.Time) (db.OtpCode, error)
 	GetLatestOTP(ctx context.Context, email, purpose string) (db.OtpCode, error)
@@ -61,6 +64,21 @@ func (r *repo) CreateUser(ctx context.Context, firstName, lastName, email string
 	return u, wrap(err)
 }
 
+func (r *repo) UpdateUserProfile(ctx context.Context, id uuid.UUID, firstName, lastName, username *string) (db.User, error) {
+	var pgUsername pgtype.Text
+	if username != nil {
+		pgUsername = pgtype.Text{String: *username, Valid: true}
+	}
+
+	u, err := r.q.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
+		ID:        id,
+		FirstName: firstName,
+		LastName:  lastName,
+		Username:  pgUsername,
+	})
+	return u, wrap(err)
+}
+
 func (r *repo) GetUserByEmail(ctx context.Context, email string) (db.User, error) {
 	u, err := r.q.GetUserByEmail(ctx, email)
 	return u, wrap(err)
@@ -73,6 +91,13 @@ func (r *repo) GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error) {
 
 func (r *repo) MarkEmailVerified(ctx context.Context, userID uuid.UUID) error {
 	return wrap(r.q.MarkEmailVerified(ctx, userID))
+}
+
+func (r *repo) UpdateUserPassword(ctx context.Context, email string, passwordHash *string) error {
+	return wrap(r.q.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
+		PasswordHash: passwordHash,
+		Email:        email,
+	}))
 }
 
 func (r *repo) CreateOTP(ctx context.Context, email, codeHash, purpose string, expiresAt time.Time) (db.OtpCode, error) {

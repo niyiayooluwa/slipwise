@@ -31,10 +31,11 @@ const otpMaxAttempts = 3
 // the mail provider and the recipient's inbox.
 const otpResendCooldown = 60 * time.Second
 
-// otpPurposeSignup tags OTPs issued for signup email verification,
-// distinct from any future purpose (e.g. password reset) that might
-// share the same otp_codes table.
+// otpPurposeSignup tags OTPs issued for signup email verification.
 const otpPurposeSignup = "signup_verify"
+
+// otpPurposeReset tags OTPs issued for password resets.
+const otpPurposeReset = "password_reset"
 
 // refreshTokenTTLDays is how long a refresh token stays valid after
 // issuance, and after every rotation.
@@ -65,6 +66,7 @@ type UserProfile struct {
 	ID         uuid.UUID
 	FirstName  string
 	LastName   string
+	Username   *string
 	Email      string
 	IsVerified bool
 }
@@ -106,13 +108,10 @@ func (s *AuthService) Signup(ctx context.Context, firstName, lastName, email, pa
 		return err
 	}
 
-	return s.issueAndSendOTP(ctx, user.Email)
+	return s.issueAndSendOTP(ctx, user.Email, otpPurposeSignup)
 }
 
-// issueAndSendOTP generates a code, stores its bcrypt hash, and emails
-// the raw code. The raw code never touches the database — only
-// CheckSecret against the stored hash can confirm a match.
-func (s *AuthService) issueAndSendOTP(ctx context.Context, email string) error {
+func (s *AuthService) issueAndSendOTP(ctx context.Context, email, purpose string) error {
 	code, err := auth.GenerateOTP()
 	if err != nil {
 		return err
@@ -121,7 +120,7 @@ func (s *AuthService) issueAndSendOTP(ctx context.Context, email string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := s.repo.CreateOTP(ctx, email, codeHash, otpPurposeSignup, time.Now().Add(otpTTL)); err != nil {
+	if _, err := s.repo.CreateOTP(ctx, email, codeHash, purpose, time.Now().Add(otpTTL)); err != nil {
 		return err
 	}
 	return s.mailer.SendOTP(ctx, email, code)
@@ -183,7 +182,7 @@ func (s *AuthService) ResendOTP(ctx context.Context, email string) error {
 	// that's the normal case, not a failure, so we fall through and
 	// issue one.
 
-	return s.issueAndSendOTP(ctx, email)
+	return s.issueAndSendOTP(ctx, email, otpPurposeSignup)
 }
 
 // Login checks password and verification status, then issues a fresh
@@ -329,10 +328,41 @@ func (s *AuthService) GetProfile(ctx context.Context, userID uuid.UUID) (UserPro
 	if err != nil {
 		return UserProfile{}, ErrUserNotFound
 	}
+
+	var un *string
+	if user.Username.Valid {
+		v := user.Username.String
+		un = &v
+	}
+
 	return UserProfile{
 		ID:         user.ID,
 		FirstName:  strPtrVal(user.FirstName),
 		LastName:   strPtrVal(user.LastName),
+		Username:   un,
+		Email:      user.Email,
+		IsVerified: user.EmailVerifiedAt != nil,
+	}, nil
+}
+
+// UpdateProfile allows a user to update their optional profile fields.
+func (s *AuthService) UpdateProfile(ctx context.Context, userID uuid.UUID, firstName, lastName, username *string) (UserProfile, error) {
+	user, err := s.repo.UpdateUserProfile(ctx, userID, firstName, lastName, username)
+	if err != nil {
+		return UserProfile{}, err
+	}
+
+	var un *string
+	if user.Username.Valid {
+		v := user.Username.String
+		un = &v
+	}
+
+	return UserProfile{
+		ID:         user.ID,
+		FirstName:  strPtrVal(user.FirstName),
+		LastName:   strPtrVal(user.LastName),
+		Username:   un,
 		Email:      user.Email,
 		IsVerified: user.EmailVerifiedAt != nil,
 	}, nil
@@ -344,6 +374,52 @@ func strPtrVal(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// ForgotPassword generates a 6-digit OTP with purpose "password_reset" and emails it.
+func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
+	_, err := s.repo.GetUserByEmail(ctx, email)
+	if err != nil {
+		// Do not leak whether the user exists. Silently succeed.
+		return nil
+	}
+
+	latest, err := s.repo.GetLatestOTP(ctx, email, otpPurposeReset)
+	if err == nil && time.Since(latest.CreatedAt) < otpResendCooldown {
+		return ErrOTPCooldown
+	}
+
+	return s.issueAndSendOTP(ctx, email, otpPurposeReset)
+}
+
+// ResetPassword verifies the OTP and updates the password hash.
+func (s *AuthService) ResetPassword(ctx context.Context, email, code, newPassword string) error {
+	otp, err := s.repo.GetLatestOTP(ctx, email, otpPurposeReset)
+	if err != nil {
+		return ErrOTPNotFound
+	}
+	if time.Now().After(otp.ExpiresAt) {
+		return ErrOTPExpired
+	}
+	if int(otp.AttemptCount) >= otpMaxAttempts {
+		return ErrOTPMaxAttempts
+	}
+	if !auth.CheckSecret(otp.CodeHash, code) {
+		_ = s.repo.IncrementOTPAttempts(ctx, otp.ID)
+		return ErrOTPIncorrect
+	}
+
+	pwHash, err := auth.HashSecret(newPassword)
+	if err != nil {
+		return err
+	}
+
+	if err := s.repo.UpdateUserPassword(ctx, email, &pwHash); err != nil {
+		return err
+	}
+
+	_ = s.repo.MarkOTPUsed(ctx, otp.ID)
+	return nil
 }
 
 // Ensure db is used — the import is needed for CreateUser etc. called via repo,

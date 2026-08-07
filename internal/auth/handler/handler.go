@@ -322,6 +322,7 @@ func (h *AuthHandler) Me(c *echo.Context) error {
 			ID:         profile.ID.String(),
 			FirstName:  profile.FirstName,
 			LastName:   profile.LastName,
+			Username:   profile.Username,
 			Email:      profile.Email,
 			IsVerified: profile.IsVerified,
 		})
@@ -331,4 +332,121 @@ func (h *AuthHandler) Me(c *echo.Context) error {
 		slog.Error("auth handler error", "endpoint", "me", "error", err)
 		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
 	}
+}
+
+// ForgotPassword godoc
+// @Summary      Request a password reset OTP
+// @Description  Sends a 6-digit OTP to the user's email if they exist.
+// @Description  Returns 200 even if the user doesn't exist to prevent email enumeration.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body model.ForgotPasswordRequest true "email to send OTP to"
+// @Success      200 {object} apitypes.MessageResponse
+// @Failure      400 {object} apitypes.ErrorResponse "invalid body"
+// @Failure      429 {object} apitypes.ErrorResponse "requested too soon after the last one"
+// @Failure      500 {object} apitypes.ErrorResponse "DB or mail-provider failure"
+// @Router       /auth/forgot-password [post]
+func (h *AuthHandler) ForgotPassword(c *echo.Context) error {
+	var req model.ForgotPasswordRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid body"})
+	}
+	if req.Email == "" {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "email is required"})
+	}
+
+	err := h.svc.ForgotPassword(c.Request().Context(), req.Email)
+	switch {
+	case err == nil:
+		return c.JSON(http.StatusOK, apitypes.MessageResponse{
+			Message: "if the email exists, a password reset code has been sent",
+		})
+	case errors.Is(err, service.ErrOTPCooldown):
+		return c.JSON(http.StatusTooManyRequests, apitypes.ErrorResponse{Error: err.Error()})
+	default:
+		slog.Error("auth handler error", "endpoint", "forgot-password", "error", err)
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
+	}
+}
+
+// ResetPassword godoc
+// @Summary      Reset password using OTP
+// @Description  Validates the reset OTP and updates the user's password.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body model.ResetPasswordRequest true "email, code, and new password"
+// @Success      200 {object} apitypes.MessageResponse
+// @Failure      400 {object} apitypes.ErrorResponse "invalid body or OTP incorrect/expired"
+// @Failure      429 {object} apitypes.ErrorResponse "too many wrong attempts against this code"
+// @Failure      500 {object} apitypes.ErrorResponse "internal error"
+// @Router       /auth/reset-password [post]
+func (h *AuthHandler) ResetPassword(c *echo.Context) error {
+	var req model.ResetPasswordRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid body"})
+	}
+	if req.Email == "" || req.Code == "" || req.NewPassword == "" {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "email, code, and new_password are required"})
+	}
+	if len(req.NewPassword) < 8 {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "password must be at least 8 characters"})
+	}
+
+	err := h.svc.ResetPassword(c.Request().Context(), req.Email, req.Code, req.NewPassword)
+	switch {
+	case err == nil:
+		return c.JSON(http.StatusOK, apitypes.MessageResponse{
+			Message: "password updated successfully",
+		})
+	case errors.Is(err, service.ErrOTPNotFound), errors.Is(err, service.ErrOTPExpired), errors.Is(err, service.ErrOTPIncorrect):
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: err.Error()})
+	case errors.Is(err, service.ErrOTPMaxAttempts):
+		return c.JSON(http.StatusTooManyRequests, apitypes.ErrorResponse{Error: err.Error()})
+	default:
+		slog.Error("auth handler error", "endpoint", "reset-password", "error", err)
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
+	}
+}
+
+// UpdateProfile godoc
+// @Summary      Update user profile
+// @Description  Updates the authenticated user's profile fields.
+// @Description  Requires a valid Bearer token in the Authorization header.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body model.UpdateProfileRequest true "profile fields to update"
+// @Success      200 {object} model.UserProfileResponse
+// @Failure      400 {object} apitypes.ErrorResponse "invalid body"
+// @Failure      401 {object} apitypes.ErrorResponse "unauthorized"
+// @Failure      500 {object} apitypes.ErrorResponse "internal error"
+// @Router       /auth/me [patch]
+func (h *AuthHandler) UpdateProfile(c *echo.Context) error {
+	var req model.UpdateProfileRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid body"})
+	}
+
+	userID, ok := c.Get("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
+	}
+
+	profile, err := h.svc.UpdateProfile(c.Request().Context(), userID, req.FirstName, req.LastName, req.Username)
+	if err != nil {
+		slog.Error("auth handler error", "endpoint", "update-profile", "error", err)
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
+	}
+
+	return c.JSON(http.StatusOK, model.UserProfileResponse{
+		ID:         profile.ID.String(),
+		FirstName:  profile.FirstName,
+		LastName:   profile.LastName,
+		Username:   profile.Username,
+		Email:      profile.Email,
+		IsVerified: profile.IsVerified,
+	})
 }

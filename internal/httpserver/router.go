@@ -81,12 +81,15 @@ func mountAuthRoutes(g *echo.Group, h *authhandler.AuthHandler, extractor echo.I
 	g.POST("/resend-otp", h.ResendOTP)
 	g.POST("/login", h.Login, loginRateLimit)
 	g.POST("/oauth/google", h.GoogleLogin, loginRateLimit)
+	g.POST("/forgot-password", h.ForgotPassword)
+	g.POST("/reset-password", h.ResetPassword)
 	g.POST("/refresh", h.Refresh)
 	g.POST("/logout", h.Logout)
 
 	// Protected auth routes — require a valid JWT.
 	protected := g.Group("", auth.RequireAuth(jwtIssuer))
 	protected.GET("/me", h.Me)
+	protected.PATCH("/me", h.UpdateProfile)
 }
 
 // mountBettingRoutes registers all /v1/tickets endpoints.

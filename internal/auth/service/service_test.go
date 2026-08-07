@@ -12,6 +12,7 @@ import (
 	db "sportloga/internal/db/generated"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // --- fakeRepo: in-memory stand-in for repository.AuthRepository ---
@@ -47,6 +48,27 @@ func (f *fakeRepo) CreateUser(_ context.Context, firstName, lastName, email stri
 	return u, nil
 }
 
+func (f *fakeRepo) UpdateUserProfile(_ context.Context, id uuid.UUID, firstName, lastName, username *string) (db.User, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	u, ok := f.usersByID[id]
+	if !ok {
+		return db.User{}, errNotFound
+	}
+	if firstName != nil {
+		u.FirstName = firstName
+	}
+	if lastName != nil {
+		u.LastName = lastName
+	}
+	if username != nil {
+		u.Username = pgtype.Text{String: *username, Valid: true}
+	}
+	f.usersByID[id] = u
+	f.usersByEmail[u.Email] = u
+	return u, nil
+}
+
 func (f *fakeRepo) GetUserByEmail(_ context.Context, email string) (db.User, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -78,6 +100,19 @@ func (f *fakeRepo) MarkEmailVerified(_ context.Context, userID uuid.UUID) error 
 	u.EmailVerifiedAt = &now
 	f.usersByID[userID] = u
 	f.usersByEmail[u.Email] = u
+	return nil
+}
+
+func (f *fakeRepo) UpdateUserPassword(_ context.Context, email string, passwordHash *string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	u, ok := f.usersByEmail[email]
+	if !ok {
+		return errNotFound
+	}
+	u.PasswordHash = passwordHash
+	f.usersByEmail[email] = u
+	f.usersByID[u.ID] = u
 	return nil
 }
 
@@ -548,5 +583,88 @@ func TestResendOTP_AlreadyVerified(t *testing.T) {
 	err := svc.ResendOTP(ctx, "alreadyverified@example.com")
 	if !errors.Is(err, service.ErrAlreadyVerified) {
 		t.Fatalf("expected ErrAlreadyVerified, got %v", err)
+	}
+}
+
+// --- ForgotPassword ---
+
+func TestForgotPassword_Success(t *testing.T) {
+	svc, repo, mailer := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "forgot@example.com", "password123")
+
+	// Reset mailer since Signup sends an OTP
+	mailer.mu.Lock()
+	mailer.sent = nil
+	mailer.mu.Unlock()
+
+	err := svc.ForgotPassword(ctx, "forgot@example.com")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(mailer.sent) != 1 {
+		t.Fatalf("expected 1 OTP sent, got %d", len(mailer.sent))
+	}
+
+	// Verify purpose in DB
+	repo.mu.Lock()
+	otp, ok := repo.latestOTP["forgot@example.com|password_reset"]
+	repo.mu.Unlock()
+	if !ok {
+		t.Fatal("expected password_reset OTP in DB")
+	}
+	if otp.Purpose != "password_reset" {
+		t.Fatalf("expected purpose password_reset, got %s", otp.Purpose)
+	}
+}
+
+func TestForgotPassword_UnknownEmail_SilentlySucceeds(t *testing.T) {
+	svc, _, mailer := newTestService()
+	ctx := context.Background()
+
+	err := svc.ForgotPassword(ctx, "unknown@example.com")
+	if err != nil {
+		t.Fatalf("expected no error to prevent enumeration, got %v", err)
+	}
+	if len(mailer.sent) != 0 {
+		t.Fatalf("expected 0 OTP sent, got %d", len(mailer.sent))
+	}
+}
+
+// --- ResetPassword ---
+
+func TestResetPassword_Success(t *testing.T) {
+	svc, _, mailer := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "reset@example.com", "password123")
+	_ = svc.ForgotPassword(ctx, "reset@example.com")
+	code := mailer.lastCode(t)
+
+	err := svc.ResetPassword(ctx, "reset@example.com", code, "newpassword456")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Verify new password works
+	_, err = svc.Login(ctx, "reset@example.com", "newpassword456")
+	// Since we didn't verify the email in this test before login, it will return ErrEmailNotVerified
+	// But it won't return ErrInvalidCredentials, which means password is correct.
+	if errors.Is(err, service.ErrInvalidCredentials) {
+		t.Fatal("expected new password to work, but got ErrInvalidCredentials")
+	}
+}
+
+func TestResetPassword_WrongCode(t *testing.T) {
+	svc, _, _ := newTestService()
+	ctx := context.Background()
+
+	_ = svc.Signup(ctx, "John", "Doe", "resetwrong@example.com", "password123")
+	_ = svc.ForgotPassword(ctx, "resetwrong@example.com")
+
+	err := svc.ResetPassword(ctx, "resetwrong@example.com", "000000", "newpassword")
+	if !errors.Is(err, service.ErrOTPIncorrect) {
+		t.Fatalf("expected ErrOTPIncorrect, got %v", err)
 	}
 }

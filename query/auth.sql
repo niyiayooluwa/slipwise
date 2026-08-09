@@ -55,3 +55,6 @@ SET
   updated_at = now()
 WHERE id = sqlc.arg('id')
 RETURNING *;
+
+-- name: CheckUsernameExists :one
+SELECT EXISTS(SELECT 1 FROM users WHERE username = $1);

@@ -83,6 +83,7 @@ func mountAuthRoutes(g *echo.Group, h *authhandler.AuthHandler, extractor echo.I
 	g.POST("/oauth/google", h.GoogleLogin, loginRateLimit)
 	g.POST("/forgot-password", h.ForgotPassword)
 	g.POST("/reset-password", h.ResetPassword)
+	g.GET("/check-username", h.CheckUsername)
 	g.POST("/refresh", h.Refresh)
 	g.POST("/logout", h.Logout)
 

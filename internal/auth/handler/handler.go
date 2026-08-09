@@ -450,3 +450,30 @@ func (h *AuthHandler) UpdateProfile(c *echo.Context) error {
 		IsVerified: profile.IsVerified,
 	})
 }
+
+// CheckUsername godoc
+// @Summary      Check username availability
+// @Description  Checks if a given username is available to be claimed.
+// @Tags         auth
+// @Produce      json
+// @Param        q query string true "username to check"
+// @Success      200 {object} model.CheckUsernameResponse
+// @Failure      400 {object} apitypes.ErrorResponse "missing query parameter"
+// @Failure      500 {object} apitypes.ErrorResponse "internal error"
+// @Router       /auth/check-username [get]
+func (h *AuthHandler) CheckUsername(c *echo.Context) error {
+	username := c.QueryParam("q")
+	if username == "" {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "missing 'q' query parameter"})
+	}
+
+	available, err := h.svc.CheckUsername(c.Request().Context(), username)
+	if err != nil {
+		slog.Error("auth handler error", "endpoint", "check-username", "error", err)
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
+	}
+
+	return c.JSON(http.StatusOK, model.CheckUsernameResponse{
+		Available: available,
+	})
+}

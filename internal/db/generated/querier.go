@@ -8,9 +8,11 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
+	CheckUsernameExists(ctx context.Context, username pgtype.Text) (bool, error)
 	CleanupOrphanedBookingCodes(ctx context.Context) error
 	CreateBookingCode(ctx context.Context, arg CreateBookingCodeParams) (BookingCode, error)
 	CreateBookingSelection(ctx context.Context, arg CreateBookingSelectionParams) (BookingSelection, error)

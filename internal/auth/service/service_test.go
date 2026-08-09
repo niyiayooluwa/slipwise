@@ -253,6 +253,17 @@ func (m *fakeMailer) lastCode(t *testing.T) string {
 	return m.sent[len(m.sent)-1].code
 }
 
+// --- fake repo CheckUsernameExists ---
+func (f *fakeRepo) CheckUsernameExists(ctx context.Context, username string) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if username == "taken" {
+		return true, nil
+	}
+	return false, nil
+}
+
 // --- test setup helper ---
 
 func newTestService() (*service.AuthService, *fakeRepo, *fakeMailer) {
@@ -666,5 +677,46 @@ func TestResetPassword_WrongCode(t *testing.T) {
 	err := svc.ResetPassword(ctx, "resetwrong@example.com", "000000", "newpassword")
 	if !errors.Is(err, service.ErrOTPIncorrect) {
 		t.Fatalf("expected ErrOTPIncorrect, got %v", err)
+	}
+}
+
+// --- CheckUsername ---
+
+func TestCheckUsername_Available(t *testing.T) {
+	svc, _, _ := newTestService()
+	ctx := context.Background()
+
+	available, err := svc.CheckUsername(ctx, "new_user")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !available {
+		t.Fatal("expected username to be available")
+	}
+}
+
+func TestCheckUsername_Taken(t *testing.T) {
+	svc, _, _ := newTestService()
+	ctx := context.Background()
+
+	available, err := svc.CheckUsername(ctx, "taken")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if available {
+		t.Fatal("expected 'taken' username to be unavailable")
+	}
+}
+
+func TestCheckUsername_Empty(t *testing.T) {
+	svc, _, _ := newTestService()
+	ctx := context.Background()
+
+	available, err := svc.CheckUsername(ctx, "")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if available {
+		t.Fatal("expected empty username to be unavailable")
 	}
 }

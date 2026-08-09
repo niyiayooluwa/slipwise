@@ -13,6 +13,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const checkUsernameExists = `-- name: CheckUsernameExists :one
+SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)
+`
+
+func (q *Queries) CheckUsernameExists(ctx context.Context, username pgtype.Text) (bool, error) {
+	row := q.db.QueryRow(ctx, checkUsernameExists, username)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const createOTP = `-- name: CreateOTP :one
 INSERT INTO otp_codes (email, code_hash, purpose, expires_at)
 VALUES ($1, $2, $3, $4)

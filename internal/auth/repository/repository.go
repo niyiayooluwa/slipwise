@@ -25,6 +25,7 @@ type AuthRepository interface {
 	UpdateUserProfile(ctx context.Context, id uuid.UUID, firstName, lastName, username *string) (db.User, error)
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
+	CheckUsernameExists(ctx context.Context, username string) (bool, error)
 	MarkEmailVerified(ctx context.Context, userID uuid.UUID) error
 	UpdateUserPassword(ctx context.Context, email string, passwordHash *string) error
 
@@ -87,6 +88,11 @@ func (r *repo) GetUserByEmail(ctx context.Context, email string) (db.User, error
 func (r *repo) GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error) {
 	u, err := r.q.GetUserByID(ctx, id)
 	return u, wrap(err)
+}
+
+func (r *repo) CheckUsernameExists(ctx context.Context, username string) (bool, error) {
+	exists, err := r.q.CheckUsernameExists(ctx, pgtype.Text{String: username, Valid: true})
+	return exists, wrap(err)
 }
 
 func (r *repo) MarkEmailVerified(ctx context.Context, userID uuid.UUID) error {

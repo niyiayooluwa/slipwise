@@ -425,3 +425,15 @@ func (s *AuthService) ResetPassword(ctx context.Context, email, code, newPasswor
 // Ensure db is used — the import is needed for CreateUser etc. called via repo,
 // but also referenced here to avoid a blank import.
 var _ db.User
+
+// CheckUsername checks if a username is available (not taken).
+func (s *AuthService) CheckUsername(ctx context.Context, username string) (bool, error) {
+	if username == "" {
+		return false, nil
+	}
+	exists, err := s.repo.CheckUsernameExists(ctx, username)
+	if err != nil {
+		return false, err
+	}
+	return !exists, nil
+}

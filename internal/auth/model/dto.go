@@ -123,3 +123,9 @@ type UpdateProfileRequest struct {
 	LastName  *string `json:"last_name" example:"Doe"`
 	Username  *string `json:"username" example:"johndoe99"`
 } // @name UpdateProfileRequest
+
+// CheckUsernameResponse is the payload for the check username availability endpoint.
+type CheckUsernameResponse struct {
+	// Available is true if the username is not taken.
+	Available bool `json:"available" example:"true"`
+} // @name CheckUsernameResponse

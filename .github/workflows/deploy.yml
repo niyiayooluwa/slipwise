@@ -1,0 +1,39 @@
+name: Deploy Slipwise to HF Space
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Slipwise
+        uses: actions/checkout@v4
+        with:
+          path: slipwise-src
+
+      - name: Checkout HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git clone https://user:$HF_TOKEN@huggingface.co/spaces/niyiayooluwa/hololine space
+
+      - name: Sync slipwise/ folder only
+        run: |
+          rm -rf space/slipwise
+          mkdir -p space/slipwise
+          # copy everything except .git
+          rsync -a --exclude='.git' slipwise-src/ space/slipwise/
+
+      - name: Commit and push
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          cd space
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git add slipwise
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Sync slipwise from GitHub (${{ github.sha }})"
+          git push https://user:$HF_TOKEN@huggingface.co/spaces/niyiayooluwa/hololine HEAD:main

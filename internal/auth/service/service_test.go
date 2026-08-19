@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"sportloga/internal/auth"
-	"sportloga/internal/auth/service"
-	db "sportloga/internal/db/generated"
+	"slipwise/internal/auth"
+	"slipwise/internal/auth/service"
+	db "slipwise/internal/db/generated"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -39,27 +39,27 @@ func newFakeRepo() *fakeRepo {
 	}
 }
 
-func (f *fakeRepo) CreateUser(_ context.Context, firstName, lastName, email string, passwordHash *string) (db.User, error) {
+func (f *fakeRepo) CreateUser(_ context.Context, username, email string, passwordHash *string) (db.User, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	u := db.User{ID: uuid.New(), FirstName: &firstName, LastName: &lastName, Email: email, PasswordHash: passwordHash, CreatedAt: time.Now()}
+
+	var pgUsername pgtype.Text
+	if username != "" {
+		pgUsername = pgtype.Text{String: username, Valid: true}
+	}
+
+	u := db.User{ID: uuid.New(), Username: pgUsername, Email: email, PasswordHash: passwordHash, CreatedAt: time.Now()}
 	f.usersByEmail[email] = u
 	f.usersByID[u.ID] = u
 	return u, nil
 }
 
-func (f *fakeRepo) UpdateUserProfile(_ context.Context, id uuid.UUID, firstName, lastName, username *string) (db.User, error) {
+func (f *fakeRepo) UpdateUserProfile(_ context.Context, id uuid.UUID, username *string) (db.User, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	u, ok := f.usersByID[id]
 	if !ok {
 		return db.User{}, errNotFound
-	}
-	if firstName != nil {
-		u.FirstName = firstName
-	}
-	if lastName != nil {
-		u.LastName = lastName
 	}
 	if username != nil {
 		u.Username = pgtype.Text{String: *username, Valid: true}
@@ -280,7 +280,7 @@ func TestSignup_Success(t *testing.T) {
 	svc, repo, mailer := newTestService()
 	ctx := context.Background()
 
-	err := svc.Signup(ctx, "John", "Doe", "new@example.com", "password123")
+	err := svc.Signup(ctx, "johndoe", "new@example.com", "password123")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -296,8 +296,8 @@ func TestSignup_DuplicateEmail(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "dupe@example.com", "password123")
-	err := svc.Signup(ctx, "John", "Doe", "dupe@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "dupe@example.com", "password123")
+	err := svc.Signup(ctx, "johndoe", "dupe@example.com", "password123")
 
 	if !errors.Is(err, service.ErrEmailAlreadyRegistered) {
 		t.Fatalf("expected ErrEmailAlreadyRegistered, got %v", err)
@@ -310,7 +310,7 @@ func TestVerify_Success(t *testing.T) {
 	svc, _, mailer := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "verify@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "verify@example.com", "password123")
 	code := mailer.lastCode(t)
 
 	pair, err := svc.Verify(ctx, "verify@example.com", code)
@@ -326,7 +326,7 @@ func TestVerify_WrongCode(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "wrongcode@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "wrongcode@example.com", "password123")
 
 	_, err := svc.Verify(ctx, "wrongcode@example.com", "000000")
 	if !errors.Is(err, service.ErrOTPIncorrect) {
@@ -338,7 +338,7 @@ func TestVerify_MaxAttemptsLocksCode(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "maxattempts@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "maxattempts@example.com", "password123")
 
 	// 3 wrong guesses burns the code...
 	for i := 0; i < 3; i++ {
@@ -360,7 +360,7 @@ func TestVerify_ExpiredCode(t *testing.T) {
 	svc, repo, mailer := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "expired@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "expired@example.com", "password123")
 	code := mailer.lastCode(t)
 
 	// Reach into the fake to simulate time having passed, rather than
@@ -383,7 +383,7 @@ func TestLogin_Success(t *testing.T) {
 	svc, _, mailer := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "login@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "login@example.com", "password123")
 	code := mailer.lastCode(t)
 	_, _ = svc.Verify(ctx, "login@example.com", code)
 
@@ -400,7 +400,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 	svc, _, mailer := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "wrongpw@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "wrongpw@example.com", "password123")
 	code := mailer.lastCode(t)
 	_, _ = svc.Verify(ctx, "wrongpw@example.com", code)
 
@@ -427,7 +427,7 @@ func TestLogin_UnverifiedAccount(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "unverified@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "unverified@example.com", "password123")
 	// deliberately never call Verify
 
 	_, err := svc.Login(ctx, "unverified@example.com", "password123")
@@ -442,7 +442,7 @@ func TestRefresh_RotatesToken(t *testing.T) {
 	svc, _, mailer := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "refresh@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "refresh@example.com", "password123")
 	code := mailer.lastCode(t)
 	firstPair, _ := svc.Verify(ctx, "refresh@example.com", code)
 
@@ -466,7 +466,7 @@ func TestRefresh_ReuseTriggersGlobalNuke(t *testing.T) {
 	svc, _, mailer := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "nuke@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "nuke@example.com", "password123")
 	code := mailer.lastCode(t)
 
 	// Legitimate login 1 (Phone A)
@@ -514,7 +514,7 @@ func TestLogout_IsIdempotent(t *testing.T) {
 	svc, _, mailer := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "logout@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "logout@example.com", "password123")
 	code := mailer.lastCode(t)
 	pair, _ := svc.Verify(ctx, "logout@example.com", code)
 
@@ -538,7 +538,7 @@ func TestResendOTP_Success(t *testing.T) {
 	svc, repo, mailer := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "resend@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "resend@example.com", "password123")
 
 	// Simulate the cooldown window having already passed.
 	repo.mu.Lock()
@@ -560,7 +560,7 @@ func TestResendOTP_Cooldown(t *testing.T) {
 	svc, _, mailer := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "cooldown@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "cooldown@example.com", "password123")
 	// No time manipulation — the OTP from Signup was just created, so
 	// this should still be inside the 60s cooldown window.
 
@@ -587,7 +587,7 @@ func TestResendOTP_AlreadyVerified(t *testing.T) {
 	svc, _, mailer := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "alreadyverified@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "alreadyverified@example.com", "password123")
 	code := mailer.lastCode(t)
 	_, _ = svc.Verify(ctx, "alreadyverified@example.com", code)
 
@@ -603,7 +603,7 @@ func TestForgotPassword_Success(t *testing.T) {
 	svc, repo, mailer := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "forgot@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "forgot@example.com", "password123")
 
 	// Reset mailer since Signup sends an OTP
 	mailer.mu.Lock()
@@ -649,7 +649,7 @@ func TestResetPassword_Success(t *testing.T) {
 	svc, _, mailer := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "reset@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "reset@example.com", "password123")
 	_ = svc.ForgotPassword(ctx, "reset@example.com")
 	code := mailer.lastCode(t)
 
@@ -671,7 +671,7 @@ func TestResetPassword_WrongCode(t *testing.T) {
 	svc, _, _ := newTestService()
 	ctx := context.Background()
 
-	_ = svc.Signup(ctx, "John", "Doe", "resetwrong@example.com", "password123")
+	_ = svc.Signup(ctx, "johndoe", "resetwrong@example.com", "password123")
 	_ = svc.ForgotPassword(ctx, "resetwrong@example.com")
 
 	err := svc.ResetPassword(ctx, "resetwrong@example.com", "000000", "newpassword")

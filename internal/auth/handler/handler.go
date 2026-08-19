@@ -12,9 +12,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	"sportloga/internal/apitypes"
-	"sportloga/internal/auth/model"
-	"sportloga/internal/auth/service"
+	"slipwise/internal/apitypes"
+	"slipwise/internal/auth/model"
+	"slipwise/internal/auth/service"
 
 	"github.com/google/uuid"
 
@@ -51,12 +51,6 @@ func (h *AuthHandler) Signup(c *echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid body"})
 	}
-	if req.FirstName == "" {
-		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "first name is required"})
-	}
-	if req.LastName == "" {
-		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "last name is required"})
-	}
 	if req.Email == "" {
 		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "email is required"})
 	}
@@ -64,7 +58,7 @@ func (h *AuthHandler) Signup(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "password must be at least 8 characters"})
 	}
 
-	err := h.svc.Signup(c.Request().Context(), req.FirstName, req.LastName, req.Email, req.Password)
+	err := h.svc.Signup(c.Request().Context(), req.Username, req.Email, req.Password)
 	switch {
 	case err == nil:
 		return c.JSON(http.StatusCreated, model.SignupResponse{
@@ -320,8 +314,6 @@ func (h *AuthHandler) Me(c *echo.Context) error {
 	case err == nil:
 		return c.JSON(http.StatusOK, model.UserProfileResponse{
 			ID:         profile.ID.String(),
-			FirstName:  profile.FirstName,
-			LastName:   profile.LastName,
 			Username:   profile.Username,
 			Email:      profile.Email,
 			IsVerified: profile.IsVerified,
@@ -435,7 +427,7 @@ func (h *AuthHandler) UpdateProfile(c *echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
 	}
 
-	profile, err := h.svc.UpdateProfile(c.Request().Context(), userID, req.FirstName, req.LastName, req.Username)
+	profile, err := h.svc.UpdateProfile(c.Request().Context(), userID, req.Username)
 	if err != nil {
 		slog.Error("auth handler error", "endpoint", "update-profile", "error", err)
 		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "internal error"})
@@ -443,8 +435,6 @@ func (h *AuthHandler) UpdateProfile(c *echo.Context) error {
 
 	return c.JSON(http.StatusOK, model.UserProfileResponse{
 		ID:         profile.ID.String(),
-		FirstName:  profile.FirstName,
-		LastName:   profile.LastName,
 		Username:   profile.Username,
 		Email:      profile.Email,
 		IsVerified: profile.IsVerified,

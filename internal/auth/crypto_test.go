@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"sportloga/internal/auth"
+	"slipwise/internal/auth"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"

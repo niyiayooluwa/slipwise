@@ -1,6 +1,6 @@
 -- name: CreateUser :one
-INSERT INTO users (first_name, last_name, email, password_hash)
-VALUES ($1, $2, $3, $4)
+INSERT INTO users (username, email, password_hash)
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: GetUserByEmail :one
@@ -49,8 +49,6 @@ UPDATE users SET password_hash = $1, updated_at = now() WHERE email = $2;
 -- name: UpdateUserProfile :one
 UPDATE users
 SET 
-  first_name = COALESCE(sqlc.narg('first_name'), first_name),
-  last_name = COALESCE(sqlc.narg('last_name'), last_name),
   username = COALESCE(sqlc.narg('username'), username),
   updated_at = now()
 WHERE id = sqlc.arg('id')

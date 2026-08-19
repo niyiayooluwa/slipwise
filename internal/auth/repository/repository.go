@@ -9,7 +9,7 @@ package repository
 import (
 	"context"
 	"errors"
-	db "sportloga/internal/db/generated"
+	db "slipwise/internal/db/generated"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,8 +21,8 @@ import (
 // on. Defined as an interface so the service can be tested against a
 // fake without spinning up Postgres.
 type AuthRepository interface {
-	CreateUser(ctx context.Context, firstName, lastName, email string, passwordHash *string) (db.User, error)
-	UpdateUserProfile(ctx context.Context, id uuid.UUID, firstName, lastName, username *string) (db.User, error)
+	CreateUser(ctx context.Context, username, email string, passwordHash *string) (db.User, error)
+	UpdateUserProfile(ctx context.Context, id uuid.UUID, username *string) (db.User, error)
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
 	CheckUsernameExists(ctx context.Context, username string) (bool, error)
@@ -55,27 +55,28 @@ func NewAuthRepository(q *db.Queries) AuthRepository {
 	return &repo{q: q}
 }
 
-func (r *repo) CreateUser(ctx context.Context, firstName, lastName, email string, passwordHash *string) (db.User, error) {
+func (r *repo) CreateUser(ctx context.Context, userName, email string, passwordHash *string) (db.User, error) {
+	var pgUsername pgtype.Text
+	if userName != "" {
+		pgUsername = pgtype.Text{String: userName, Valid: true}
+	}
 	u, err := r.q.CreateUser(ctx, db.CreateUserParams{
-		FirstName:    &firstName,
-		LastName:     &lastName,
+		Username:     pgUsername,
 		Email:        email,
 		PasswordHash: passwordHash,
 	})
 	return u, wrap(err)
 }
 
-func (r *repo) UpdateUserProfile(ctx context.Context, id uuid.UUID, firstName, lastName, username *string) (db.User, error) {
+func (r *repo) UpdateUserProfile(ctx context.Context, id uuid.UUID, username *string) (db.User, error) {
 	var pgUsername pgtype.Text
 	if username != nil {
 		pgUsername = pgtype.Text{String: *username, Valid: true}
 	}
 
 	u, err := r.q.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
-		ID:        id,
-		FirstName: firstName,
-		LastName:  lastName,
-		Username:  pgUsername,
+		ID:       id,
+		Username: pgUsername,
 	})
 	return u, wrap(err)
 }

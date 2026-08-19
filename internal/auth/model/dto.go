@@ -9,8 +9,7 @@ package model
 
 // SignupRequest is the body for POST /auth/signup.
 type SignupRequest struct {
-	FirstName string `json:"first_name" example:"John"`
-	LastName  string `json:"last_name" example:"Doe"`
+	Username string `json:"username" example:"johndoe99"`
 	// Email is the account's login identifier. Must be unique.
 	Email string `json:"email" example:"user@example.com"`
 	// Password is the plaintext password from the client; hashed
@@ -92,10 +91,6 @@ type OAuthLoginRequest struct {
 type UserProfileResponse struct {
 	// ID is the user's unique identifier.
 	ID string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	// FirstName is the user's first name.
-	FirstName string `json:"first_name" example:"John"`
-	// LastName is the user's last name.
-	LastName string `json:"last_name" example:"Doe"`
 	// Username is the user's handle. Optional.
 	Username *string `json:"username" example:"johndoe99"`
 	// Email is the user's email address.
@@ -119,9 +114,7 @@ type ResetPasswordRequest struct {
 // UpdateProfileRequest is the body for PATCH /auth/me.
 // All fields are optional.
 type UpdateProfileRequest struct {
-	FirstName *string `json:"first_name" example:"John"`
-	LastName  *string `json:"last_name" example:"Doe"`
-	Username  *string `json:"username" example:"johndoe99"`
+	Username *string `json:"username" example:"johndoe99"`
 } // @name UpdateProfileRequest
 
 // CheckUsernameResponse is the payload for the check username availability endpoint.

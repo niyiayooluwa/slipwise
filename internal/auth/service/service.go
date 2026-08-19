@@ -10,13 +10,13 @@ import (
 	"context"
 	"time"
 
-	"sportloga/internal/auth"
-	"sportloga/internal/auth/repository"
+	"slipwise/internal/auth"
+	"slipwise/internal/auth/repository"
 
 	"github.com/google/uuid"
 	"google.golang.org/api/idtoken"
 
-	db "sportloga/internal/db/generated"
+	db "slipwise/internal/db/generated"
 )
 
 // otpTTL is how long a signup OTP stays valid after issuance.
@@ -64,8 +64,6 @@ type TokenPair struct {
 // It deliberately does not expose the password hash or internal DB types.
 type UserProfile struct {
 	ID         uuid.UUID
-	FirstName  string
-	LastName   string
 	Username   *string
 	Email      string
 	IsVerified bool
@@ -93,7 +91,7 @@ func NewAuthService(repo repository.AuthRepository, issuer *auth.JWTIssuer, mail
 // succeeds — this trades "a signup that's abandoned mid-OTP leaves a
 // dangling unverified row" for "an OTP always has a real user_id to
 // belong to." Returns ErrEmailAlreadyRegistered if email is taken.
-func (s *AuthService) Signup(ctx context.Context, firstName, lastName, email, password string) error {
+func (s *AuthService) Signup(ctx context.Context, username, email, password string) error {
 	if _, err := s.repo.GetUserByEmail(ctx, email); err == nil {
 		return ErrEmailAlreadyRegistered
 	}
@@ -103,7 +101,7 @@ func (s *AuthService) Signup(ctx context.Context, firstName, lastName, email, pa
 		return err
 	}
 
-	user, err := s.repo.CreateUser(ctx, firstName, lastName, email, &pwHash)
+	user, err := s.repo.CreateUser(ctx, username, email, &pwHash)
 	if err != nil {
 		return err
 	}
@@ -299,17 +297,8 @@ func (s *AuthService) LoginWithGoogle(ctx context.Context, idToken string) (Toke
 		return s.issueTokenPair(ctx, user.ID)
 	}
 
-	// Completely new user. Try to extract names from payload.
-	var firstName, lastName string
-	if givenNameRaw, ok := payload.Claims["given_name"]; ok {
-		firstName, _ = givenNameRaw.(string)
-	}
-	if familyNameRaw, ok := payload.Claims["family_name"]; ok {
-		lastName, _ = familyNameRaw.(string)
-	}
-
 	// Create user with null password
-	user, err = s.repo.CreateUser(ctx, firstName, lastName, email, nil)
+	user, err = s.repo.CreateUser(ctx, "", email, nil)
 	if err != nil {
 		return TokenPair{}, err
 	}
@@ -337,8 +326,6 @@ func (s *AuthService) GetProfile(ctx context.Context, userID uuid.UUID) (UserPro
 
 	return UserProfile{
 		ID:         user.ID,
-		FirstName:  strPtrVal(user.FirstName),
-		LastName:   strPtrVal(user.LastName),
 		Username:   un,
 		Email:      user.Email,
 		IsVerified: user.EmailVerifiedAt != nil,
@@ -346,8 +333,8 @@ func (s *AuthService) GetProfile(ctx context.Context, userID uuid.UUID) (UserPro
 }
 
 // UpdateProfile allows a user to update their optional profile fields.
-func (s *AuthService) UpdateProfile(ctx context.Context, userID uuid.UUID, firstName, lastName, username *string) (UserProfile, error) {
-	user, err := s.repo.UpdateUserProfile(ctx, userID, firstName, lastName, username)
+func (s *AuthService) UpdateProfile(ctx context.Context, userID uuid.UUID, username *string) (UserProfile, error) {
+	user, err := s.repo.UpdateUserProfile(ctx, userID, username)
 	if err != nil {
 		return UserProfile{}, err
 	}
@@ -360,20 +347,10 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID uuid.UUID, first
 
 	return UserProfile{
 		ID:         user.ID,
-		FirstName:  strPtrVal(user.FirstName),
-		LastName:   strPtrVal(user.LastName),
 		Username:   un,
 		Email:      user.Email,
 		IsVerified: user.EmailVerifiedAt != nil,
 	}, nil
-}
-
-// strPtrVal safely dereferences a *string, returning "" if nil.
-func strPtrVal(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
 }
 
 // ForgotPassword generates a 6-digit OTP with purpose "password_reset" and emails it.

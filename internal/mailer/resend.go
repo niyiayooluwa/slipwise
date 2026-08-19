@@ -22,7 +22,7 @@ type ResendMailer struct {
 
 // NewResendMailer builds a ResendMailer. from must be an address on a
 // domain verified in your Resend dashboard (e.g.
-// "Sportloga <otp@sportloga.app>") — sends will fail otherwise.
+// "slipwise <otp@slipwise.app>") — sends will fail otherwise.
 func NewResendMailer(apiKey, from string) *ResendMailer {
 	return &ResendMailer{
 		client: resend.NewClient(apiKey),

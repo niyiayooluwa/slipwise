@@ -37,7 +37,7 @@ type Config struct {
 	// way a missing DATABASE_URL is.
 	Port string
 	// AllowedOrigins lists the frontend origins allowed to call this
-	// API cross-origin (e.g. "https://app.sportloga.com"). Optional —
+	// API cross-origin (e.g. "https://app.slipwise.com"). Optional —
 	// defaults to ["*"] for local dev, where nothing outside your own
 	// machine needs to be locked down yet. Set CORS_ALLOWED_ORIGINS as
 	// a comma-separated list once there's a real frontend origin to

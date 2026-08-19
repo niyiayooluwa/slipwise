@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"sportloga/internal/auth"
-	authhandler "sportloga/internal/auth/handler"
-	bettinghandler "sportloga/internal/betting/handler"
+	"slipwise/internal/auth"
+	authhandler "slipwise/internal/auth/handler"
+	bettinghandler "slipwise/internal/betting/handler"
 
 	"github.com/go-chi/httprate"
 	"github.com/labstack/echo/v5"

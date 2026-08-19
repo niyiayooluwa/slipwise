@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"sportloga/internal/config"
+	"slipwise/internal/config"
 )
 
 // t.Setenv sets an env var for just this test and automatically

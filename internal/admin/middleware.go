@@ -5,8 +5,8 @@ import (
 	"context"
 	"net/http"
 
-	"sportloga/internal/auth"
-	generated "sportloga/internal/db/generated"
+	"slipwise/internal/auth"
+	generated "slipwise/internal/db/generated"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"

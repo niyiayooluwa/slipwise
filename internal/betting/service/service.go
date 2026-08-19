@@ -5,20 +5,20 @@ import (
 
 	"github.com/google/uuid"
 
-	"sportloga/internal/betting/domain"
-	db "sportloga/internal/db/generated"
+	"slipwise/internal/betting/domain"
+	db "slipwise/internal/db/generated"
 )
 
 // TicketProvider is the interface every provider package must implement.
 // Adding a new bookie means writing a new package that satisfies this —
 // no changes to BettingService required.
 type TicketProvider interface {
-	FetchAndParse(ctx context.Context, shareCode string) (*domain.SportlogaTicket, error)
+	FetchAndParse(ctx context.Context, shareCode string) (*domain.SlipwiseTicket, error)
 }
 
 // Repository defines the interface for database operations.
 type Repository interface {
-	UpsertGlobalTicket(ctx context.Context, ticket *domain.SportlogaTicket) (uuid.UUID, error)
+	UpsertGlobalTicket(ctx context.Context, ticket *domain.SlipwiseTicket) (uuid.UUID, error)
 	UpsertUserTrack(ctx context.Context, userID, bookingCodeID uuid.UUID, stake *float64, description string) error
 	GetUserHistory(ctx context.Context, userID uuid.UUID) ([]db.GetUserHistoryRow, error)
 	GetTicketDetails(ctx context.Context, arg db.GetTicketDetailsParams) ([]db.GetTicketDetailsRow, error)
@@ -43,7 +43,7 @@ func NewBettingService(repo Repository, providers map[string]TicketProvider) *Be
 // PreviewResult is the result returned by PreviewTicket.
 type PreviewResult struct {
 	BookingCodeID uuid.UUID
-	Ticket        *domain.SportlogaTicket
+	Ticket        *domain.SlipwiseTicket
 }
 
 // PreviewTicket fetches JSON from Cloudflare, translates it into a ticket struct,

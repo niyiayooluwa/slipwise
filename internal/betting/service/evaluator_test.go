@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"sportloga/internal/betting/domain"
+	"slipwise/internal/betting/domain"
 )
 
 func TestEvaluateSelection(t *testing.T) {

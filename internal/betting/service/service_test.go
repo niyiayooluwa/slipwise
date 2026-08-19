@@ -6,26 +6,26 @@ import (
 
 	"github.com/google/uuid"
 
-	"sportloga/internal/betting/domain"
-	"sportloga/internal/betting/service"
-	db "sportloga/internal/db/generated"
+	"slipwise/internal/betting/domain"
+	"slipwise/internal/betting/service"
+	db "slipwise/internal/db/generated"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type fakeRepo struct {
-	globalTickets map[uuid.UUID]*domain.SportlogaTicket
+	globalTickets map[uuid.UUID]*domain.SlipwiseTicket
 	userTracks    map[uuid.UUID]map[uuid.UUID]bool // userID -> bookingCodeID -> tracked
 }
 
 func newFakeRepo() *fakeRepo {
 	return &fakeRepo{
-		globalTickets: make(map[uuid.UUID]*domain.SportlogaTicket),
+		globalTickets: make(map[uuid.UUID]*domain.SlipwiseTicket),
 		userTracks:    make(map[uuid.UUID]map[uuid.UUID]bool),
 	}
 }
 
-func (r *fakeRepo) UpsertGlobalTicket(ctx context.Context, ticket *domain.SportlogaTicket) (uuid.UUID, error) {
+func (r *fakeRepo) UpsertGlobalTicket(ctx context.Context, ticket *domain.SlipwiseTicket) (uuid.UUID, error) {
 	id := uuid.New()
 	r.globalTickets[id] = ticket
 	return id, nil
@@ -68,8 +68,8 @@ func (r *fakeRepo) CleanupOrphanedBookingCodes(ctx context.Context) error {
 
 type fakeProvider struct{}
 
-func (p *fakeProvider) FetchAndParse(ctx context.Context, shareCode string) (*domain.SportlogaTicket, error) {
-	return &domain.SportlogaTicket{
+func (p *fakeProvider) FetchAndParse(ctx context.Context, shareCode string) (*domain.SlipwiseTicket, error) {
+	return &domain.SlipwiseTicket{
 		Provider:  "SPORTYBET",
 		Code:      shareCode,
 		TotalOdds: 1.5,

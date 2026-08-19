@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"sportloga/internal/betting/service"
+	"slipwise/internal/betting/service"
 )
 
 // CleanupJob runs daily to clean up orphaned booking codes.

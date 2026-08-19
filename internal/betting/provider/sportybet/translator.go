@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"sportloga/internal/betting/domain"
+	"slipwise/internal/betting/domain"
 )
 
 // CloudflareClient is a local interface so the sportybet package does
@@ -28,8 +28,8 @@ func NewProvider(client CloudflareClient) *Provider {
 }
 
 // FetchAndParse fetches raw JSON via the Cloudflare proxy and translates
-// it into a domain.SportlogaTicket. No DB interaction.
-func (p *Provider) FetchAndParse(ctx context.Context, shareCode string) (*domain.SportlogaTicket, error) {
+// it into a domain.SlipwiseTicket. No DB interaction.
+func (p *Provider) FetchAndParse(ctx context.Context, shareCode string) (*domain.SlipwiseTicket, error) {
 	rawJSON, err := p.client.FetchTicketByCode(ctx, shareCode)
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func (p *Provider) FetchAndParse(ctx context.Context, shareCode string) (*domain
 		})
 	}
 
-	return &domain.SportlogaTicket{
+	return &domain.SlipwiseTicket{
 		Provider:   "SPORTYBET",
 		Code:       shareCode,
 		TotalOdds:  totalOdds,

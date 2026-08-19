@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"sportloga/internal/betting/domain"
+	"slipwise/internal/betting/domain"
 )
 
 type MatchScore struct {

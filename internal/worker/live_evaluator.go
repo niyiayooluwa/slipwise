@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"sportloga/internal/betting/domain"
-	bettingservice "sportloga/internal/betting/service"
-	db "sportloga/internal/db/generated"
+	"slipwise/internal/betting/domain"
+	bettingservice "slipwise/internal/betting/service"
+	db "slipwise/internal/db/generated"
 
 	"github.com/google/uuid"
 )

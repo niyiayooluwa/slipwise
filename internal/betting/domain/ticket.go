@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type SportlogaTicket struct {
+type SlipwiseTicket struct {
 	UserID      uuid.UUID
 	Stake       *float64 // Pointer allows for NULL (stakeless tracking)
 	Description string

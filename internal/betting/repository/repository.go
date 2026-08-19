@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"sportloga/internal/betting/domain"
-	db "sportloga/internal/db/generated"
-	"sportloga/internal/worker"
+	"slipwise/internal/betting/domain"
+	db "slipwise/internal/db/generated"
+	"slipwise/internal/worker"
 )
 
 type Repository struct {
@@ -26,7 +26,7 @@ func NewRepository(dbPool *pgxpool.Pool) *Repository {
 	}
 }
 
-func (r *Repository) UpsertGlobalTicket(ctx context.Context, ticket *domain.SportlogaTicket) (uuid.UUID, error) {
+func (r *Repository) UpsertGlobalTicket(ctx context.Context, ticket *domain.SlipwiseTicket) (uuid.UUID, error) {
 	tx, err := r.dbPool.Begin(ctx)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("failed to begin transaction: %w", err)

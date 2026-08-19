@@ -4,13 +4,14 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 
-	"sportloga/internal/betting/model"
-	"sportloga/internal/betting/service"
-	db "sportloga/internal/db/generated"
+	"slipwise/internal/betting/model"
+	"slipwise/internal/betting/service"
+	db "slipwise/internal/db/generated"
 )
 
 // BettingHandler handles betting HTTP requests.
@@ -123,11 +124,33 @@ func (h *BettingHandler) GetHistory(c *echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	// Assuming a conversion function or mapping here. Since I don't have GetUserHistoryRow structure, I will just do best effort.
-	// We need to return an array of HistoryItem. I'll just leave it somewhat empty or dummy map.
-	// Actually, wait, db.GetUserHistoryRow has TicketID, Stake, Description, TrackedAt, Provider, Code, TotalOdds, OverallStatus
+	var resp []model.HistoryItem
+	for _, row := range history {
+		stake, _ := row.Stake.Float64Value()
+		var stakePtr *float64
+		if stake.Valid {
+			v := stake.Float64
+			stakePtr = &v
+		}
+		totalOdds, _ := row.TotalOdds.Float64Value()
 
-	return c.JSON(http.StatusOK, history)
+		resp = append(resp, model.HistoryItem{
+			TicketID:      row.TicketID.String(),
+			Stake:         stakePtr,
+			Description:   row.Description,
+			TrackedAt:     row.TrackedAt.Time.Format(time.RFC3339),
+			Provider:      row.Provider,
+			Code:          row.Code,
+			TotalOdds:     totalOdds.Float64,
+			OverallStatus: row.OverallStatus,
+		})
+	}
+
+	if resp == nil {
+		resp = []model.HistoryItem{}
+	}
+
+	return c.JSON(http.StatusOK, resp)
 }
 
 // GetTicketDetails godoc
@@ -161,7 +184,33 @@ func (h *BettingHandler) GetTicketDetails(c *echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, details)
+	var resp []model.TicketDetailItem
+	for _, row := range details {
+		odds, _ := row.Odds.Float64Value()
+		var marketSpec string
+		if row.MarketSpec != nil {
+			marketSpec = *row.MarketSpec
+		}
+
+		resp = append(resp, model.TicketDetailItem{
+			SelectionID:     row.SelectionID.String(),
+			MarketType:      row.MarketType,
+			MarketSpec:      marketSpec,
+			Selection:       row.Selection,
+			Odds:            odds.Float64,
+			SelectionStatus: row.SelectionStatus,
+			HomeTeam:        row.HomeTeam,
+			AwayTeam:        row.AwayTeam,
+			StartTime:       row.StartTime.Time.Format(time.RFC3339),
+			MatchStatus:     row.MatchStatus,
+		})
+	}
+
+	if resp == nil {
+		resp = []model.TicketDetailItem{}
+	}
+
+	return c.JSON(http.StatusOK, resp)
 }
 
 // DeleteTicket godoc

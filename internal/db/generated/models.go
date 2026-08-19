@@ -71,8 +71,6 @@ type RefreshToken struct {
 
 type User struct {
 	ID              uuid.UUID   `json:"id"`
-	FirstName       *string     `json:"first_name"`
-	LastName        *string     `json:"last_name"`
 	Email           string      `json:"email"`
 	PasswordHash    *string     `json:"password_hash"`
 	EmailVerifiedAt *time.Time  `json:"email_verified_at"`

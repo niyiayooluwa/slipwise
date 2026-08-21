@@ -30,7 +30,7 @@ type cloudflareClientImpl struct {
 // NewCloudflareClient creates a new CloudflareClient.
 func NewCloudflareClient(workerURL string) CloudflareClient {
 	return &cloudflareClientImpl{
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		httpClient: &http.Client{Timeout: 30 * time.Second},
 		workerURL:  workerURL,
 	}
 }

@@ -63,7 +63,13 @@ SELECT
 FROM user_tickets ut
 JOIN booking_codes bc ON ut.booking_code_id = bc.id
 WHERE ut.user_id = $1
-ORDER BY ut.created_at DESC;
+ORDER BY ut.created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: CountUserHistory :one
+SELECT COUNT(*) 
+FROM user_tickets 
+WHERE user_id = $1;
 
 -- name: GetTicketDetails :many
 SELECT 

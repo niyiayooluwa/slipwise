@@ -59,3 +59,17 @@ type TicketDetailItem struct {
 	StartTime       string  `json:"start_time"`
 	MatchStatus     string  `json:"match_status"`
 }
+
+// PaginationMeta holds metadata for paginated responses.
+type PaginationMeta struct {
+	Total   int64 `json:"total"`
+	Page    int32 `json:"page"`
+	Limit   int32 `json:"limit"`
+	HasNext bool  `json:"has_next"`
+}
+
+// PaginatedHistoryResponse is the paginated response for ticket history.
+type PaginatedHistoryResponse struct {
+	Data []HistoryItem  `json:"data"`
+	Meta PaginationMeta `json:"meta"`
+}

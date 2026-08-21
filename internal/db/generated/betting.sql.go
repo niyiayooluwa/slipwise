@@ -23,6 +23,19 @@ func (q *Queries) CleanupOrphanedBookingCodes(ctx context.Context) error {
 	return err
 }
 
+const countUserHistory = `-- name: CountUserHistory :one
+SELECT COUNT(*) 
+FROM user_tickets 
+WHERE user_id = $1
+`
+
+func (q *Queries) CountUserHistory(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countUserHistory, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createBookingCode = `-- name: CreateBookingCode :one
 INSERT INTO booking_codes (provider, code, total_odds, status) 
 VALUES ($1, $2, $3, $4)
@@ -324,7 +337,14 @@ FROM user_tickets ut
 JOIN booking_codes bc ON ut.booking_code_id = bc.id
 WHERE ut.user_id = $1
 ORDER BY ut.created_at DESC
+LIMIT $2 OFFSET $3
 `
+
+type GetUserHistoryParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
+}
 
 type GetUserHistoryRow struct {
 	TicketID      uuid.UUID          `json:"ticket_id"`
@@ -337,8 +357,8 @@ type GetUserHistoryRow struct {
 	OverallStatus string             `json:"overall_status"`
 }
 
-func (q *Queries) GetUserHistory(ctx context.Context, userID uuid.UUID) ([]GetUserHistoryRow, error) {
-	rows, err := q.db.Query(ctx, getUserHistory, userID)
+func (q *Queries) GetUserHistory(ctx context.Context, arg GetUserHistoryParams) ([]GetUserHistoryRow, error) {
+	rows, err := q.db.Query(ctx, getUserHistory, arg.UserID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

@@ -14,6 +14,7 @@ import (
 type Querier interface {
 	CheckUsernameExists(ctx context.Context, username pgtype.Text) (bool, error)
 	CleanupOrphanedBookingCodes(ctx context.Context) error
+	CountUserHistory(ctx context.Context, userID uuid.UUID) (int64, error)
 	CreateBookingCode(ctx context.Context, arg CreateBookingCodeParams) (BookingCode, error)
 	CreateBookingSelection(ctx context.Context, arg CreateBookingSelectionParams) (BookingSelection, error)
 	CreateMatch(ctx context.Context, arg CreateMatchParams) (Match, error)
@@ -33,7 +34,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByOAuthProvider(ctx context.Context, arg GetUserByOAuthProviderParams) (User, error)
-	GetUserHistory(ctx context.Context, userID uuid.UUID) ([]GetUserHistoryRow, error)
+	GetUserHistory(ctx context.Context, arg GetUserHistoryParams) ([]GetUserHistoryRow, error)
 	IncrementOTPAttempts(ctx context.Context, id uuid.UUID) error
 	MarkEmailVerified(ctx context.Context, id uuid.UUID) error
 	MarkOTPUsed(ctx context.Context, id uuid.UUID) error

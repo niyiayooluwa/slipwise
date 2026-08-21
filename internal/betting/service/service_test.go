@@ -39,9 +39,9 @@ func (r *fakeRepo) UpsertUserTrack(ctx context.Context, userID, bookingCodeID uu
 	return nil
 }
 
-func (r *fakeRepo) GetUserHistory(ctx context.Context, userID uuid.UUID) ([]db.GetUserHistoryRow, error) {
+func (r *fakeRepo) GetUserHistory(ctx context.Context, arg db.GetUserHistoryParams) ([]db.GetUserHistoryRow, error) {
 	var rows []db.GetUserHistoryRow
-	for id := range r.userTracks[userID] {
+	for id := range r.userTracks[arg.UserID] {
 		rows = append(rows, db.GetUserHistoryRow{
 			TicketID:      id,
 			Provider:      "SPORTYBET",
@@ -51,6 +51,10 @@ func (r *fakeRepo) GetUserHistory(ctx context.Context, userID uuid.UUID) ([]db.G
 		})
 	}
 	return rows, nil
+}
+
+func (r *fakeRepo) CountUserHistory(ctx context.Context, userID uuid.UUID) (int64, error) {
+	return int64(len(r.userTracks[userID])), nil
 }
 
 func (r *fakeRepo) GetTicketDetails(ctx context.Context, arg db.GetTicketDetailsParams) ([]db.GetTicketDetailsRow, error) {
@@ -129,7 +133,8 @@ func TestGetHistory_ReturnsRows(t *testing.T) {
 	codeID := uuid.New()
 	repo.UpsertUserTrack(context.Background(), userID, codeID, nil, "")
 
-	rows, err := svc.GetHistory(context.Background(), userID)
+	reqCtx := context.Background()
+	rows, _, err := svc.GetHistory(reqCtx, userID, 20, 0)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

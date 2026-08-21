@@ -1,0 +1,887 @@
+basePath: /
+definitions:
+  CheckUsernameResponse:
+    properties:
+      available:
+        description: Available is true if the username is not taken.
+        example: true
+        type: boolean
+    type: object
+  ErrorResponse:
+    properties:
+      error:
+        description: Error is a short, user-displayable reason the request failed.
+        type: string
+    type: object
+  ForgotPasswordRequest:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+    type: object
+  LoginRequest:
+    properties:
+      email:
+        description: Email is the account's login identifier.
+        example: user@example.com
+        type: string
+      password:
+        description: Password is the plaintext password to check against the stored
+          hash.
+        example: correct-horse-battery-staple
+        type: string
+    type: object
+  LogoutRequest:
+    properties:
+      refresh_token:
+        description: RefreshToken is the token to revoke.
+        type: string
+    type: object
+  MessageResponse:
+    properties:
+      message:
+        description: Message is a human-readable confirmation for the frontend to
+          display.
+        example: logged out
+        type: string
+    type: object
+  OAuthLoginRequest:
+    properties:
+      id_token:
+        description: IDToken is the JWT issued by the provider (e.g., Google or Apple).
+        type: string
+    required:
+    - id_token
+    type: object
+  RefreshRequest:
+    properties:
+      refresh_token:
+        description: RefreshToken is the token issued by a previous login/verify/refresh
+          call.
+        type: string
+    type: object
+  ResendOTPRequest:
+    properties:
+      email:
+        description: Email identifies which account to send a fresh code to.
+        example: user@example.com
+        type: string
+    type: object
+  ResetPasswordRequest:
+    properties:
+      code:
+        example: "123456"
+        type: string
+      email:
+        example: user@example.com
+        type: string
+      new_password:
+        example: new-secure-password
+        type: string
+    type: object
+  SignupRequest:
+    properties:
+      email:
+        description: Email is the account's login identifier. Must be unique.
+        example: user@example.com
+        type: string
+      password:
+        description: |-
+          Password is the plaintext password from the client; hashed
+          server-side before storage, never stored or logged as-is.
+        example: correct-horse-battery-staple
+        type: string
+      username:
+        example: johndoe99
+        type: string
+    type: object
+  SignupResponse:
+    properties:
+      message:
+        description: Message is a human-readable confirmation for the frontend to
+          display.
+        example: account created, check your email for a verification code
+        type: string
+    type: object
+  TokenPairResponse:
+    properties:
+      access_token:
+        description: |-
+          AccessToken is a short-lived (15 min) JWT sent as a Bearer token
+          on subsequent authenticated requests.
+        type: string
+      refresh_token:
+        description: |-
+          RefreshToken is a long-lived (30 day) opaque token used only
+          against POST /auth/refresh to mint a new pair. It is rotated
+          (revoked and replaced) on every use.
+        type: string
+    type: object
+  UpdateProfileRequest:
+    properties:
+      username:
+        example: johndoe99
+        type: string
+    type: object
+  UserProfileResponse:
+    properties:
+      email:
+        description: Email is the user's email address.
+        example: user@example.com
+        type: string
+      id:
+        description: ID is the user's unique identifier.
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      is_verified:
+        description: IsVerified indicates whether the user has confirmed their email.
+        example: true
+        type: boolean
+      username:
+        description: Username is the user's handle. Optional.
+        example: johndoe99
+        type: string
+    type: object
+  VerifyRequest:
+    properties:
+      code:
+        description: Code is the 6-digit OTP the user received by email.
+        example: "482913"
+        type: string
+      email:
+        description: Email identifies which account's OTP to check.
+        example: user@example.com
+        type: string
+    type: object
+  model.HistoryItem:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      overall_status:
+        type: string
+      provider:
+        type: string
+      stake:
+        type: number
+      ticket_id:
+        type: string
+      total_odds:
+        type: number
+      tracked_at:
+        type: string
+    type: object
+  model.PaginatedHistoryResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.HistoryItem'
+        type: array
+      meta:
+        $ref: '#/definitions/model.PaginationMeta'
+    type: object
+  model.PaginationMeta:
+    properties:
+      has_next:
+        type: boolean
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  model.PreviewRequest:
+    properties:
+      code:
+        example: J6J2TN
+        type: string
+      provider:
+        example: SPORTYBET
+        type: string
+    type: object
+  model.PreviewResponse:
+    properties:
+      booking_code_id:
+        type: string
+      code:
+        type: string
+      provider:
+        type: string
+      selections:
+        items:
+          $ref: '#/definitions/model.SelectionDetail'
+        type: array
+      total_odds:
+        type: number
+    type: object
+  model.SelectionDetail:
+    properties:
+      away_team:
+        type: string
+      home_team:
+        type: string
+      market_type:
+        type: string
+      odds:
+        type: number
+      selection:
+        type: string
+    type: object
+  model.TicketDetailItem:
+    properties:
+      away_team:
+        type: string
+      home_team:
+        type: string
+      market_spec:
+        type: string
+      market_type:
+        type: string
+      match_status:
+        type: string
+      odds:
+        type: number
+      selection:
+        type: string
+      selection_id:
+        type: string
+      selection_status:
+        type: string
+      start_time:
+        type: string
+    type: object
+  model.TrackRequest:
+    properties:
+      booking_code_id:
+        type: string
+      description:
+        type: string
+      stake:
+        description: null = stakeless social tracking
+        type: number
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Backend for slipwise — auth, realtime chat, notifications, and betting
+    modules.
+  title: slipwise API
+  version: "1.0"
+paths:
+  /auth/check-username:
+    get:
+      description: Checks if a given username is available to be claimed.
+      parameters:
+      - description: username to check
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/CheckUsernameResponse'
+        "400":
+          description: missing query parameter
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: internal error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Check username availability
+      tags:
+      - auth
+  /auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Sends a 6-digit OTP to the user's email if they exist.
+        Returns 200 even if the user doesn't exist to prevent email enumeration.
+      parameters:
+      - description: email to send OTP to
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/MessageResponse'
+        "400":
+          description: invalid body
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "429":
+          description: requested too soon after the last one
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: DB or mail-provider failure
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Request a password reset OTP
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Returns 401 for both "no such user" and "wrong
+        password" — the same error either way, deliberately,
+        so a caller can't use this endpoint to enumerate which
+        emails are registered. An unverified account returns
+        403 separately, since at that point the password has
+        already confirmed the account exists.
+      parameters:
+      - description: email and password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TokenPairResponse'
+        "401":
+          description: invalid email or password
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: email not verified
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: DB or token-issuing failure
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Log in with email and password
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Idempotent — revoking an already-invalid or
+        already-revoked token still returns 200, since from
+        the caller's point of view "logged out" is true
+        either way.
+      parameters:
+      - description: refresh token to revoke
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/LogoutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/MessageResponse'
+        "400":
+          description: invalid body
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Revoke a refresh token
+      tags:
+      - auth
+  /auth/me:
+    get:
+      description: |-
+        Returns the public profile fields of the currently logged-in user.
+        Requires a valid Bearer token in the Authorization header.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserProfileResponse'
+        "401":
+          description: missing or invalid token
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: user not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: internal error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Fetch the authenticated user's profile
+      tags:
+      - auth
+    patch:
+      consumes:
+      - application/json
+      description: |-
+        Updates the authenticated user's profile fields.
+        Requires a valid Bearer token in the Authorization header.
+      parameters:
+      - description: profile fields to update
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserProfileResponse'
+        "400":
+          description: invalid body
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: internal error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update user profile
+      tags:
+      - auth
+  /auth/oauth/google:
+    post:
+      consumes:
+      - application/json
+      description: Takes an ID Token from the mobile client and logs the user in,
+        creating an account if necessary.
+      parameters:
+      - description: Google ID token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/OAuthLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TokenPairResponse'
+        "400":
+          description: invalid body
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: invalid ID token
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: internal error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Log in or sign up with Google
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        The presented refresh token is revoked and a brand
+        new pair is issued, even though the request otherwise
+        succeeds — this bounds how long a stolen refresh
+        token remains useful past the legitimate user's next
+        refresh call.
+      parameters:
+      - description: refresh token to rotate
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TokenPairResponse'
+        "401":
+          description: token invalid, revoked, or expired
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: DB or token-issuing failure
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Rotate a refresh token for a new access/refresh pair
+      tags:
+      - auth
+  /auth/resend-otp:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Self-service escape hatch for an account stuck
+        mid-verification — used when the original code
+        expired (10 min) or was guessed wrong 3 times. Rate
+        limited to one send per 60 seconds per email so a
+        caller can't hammer the mail provider or the
+        recipient's inbox. The previous code is not
+        explicitly revoked; it simply stops being the
+        "latest" one once this issues a new one.
+      parameters:
+      - description: email to resend a code to
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ResendOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/MessageResponse'
+        "400":
+          description: account already verified
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: no account for this email
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "429":
+          description: resend requested too soon after the last one
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: DB or mail-provider failure
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Request a fresh signup OTP
+      tags:
+      - auth
+  /auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Validates the reset OTP and updates the user's password.
+      parameters:
+      - description: email, code, and new password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/MessageResponse'
+        "400":
+          description: invalid body or OTP incorrect/expired
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "429":
+          description: too many wrong attempts against this code
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: internal error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Reset password using OTP
+      tags:
+      - auth
+  /auth/signup:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Creates a user with email_verified_at = null and sends
+        a 6-digit OTP to the given email. The account cannot
+        log in until Verify is called with that code.
+      parameters:
+      - description: first name, last name, email, and password
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/SignupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/SignupResponse'
+        "400":
+          description: missing required field, or password under 8 chars
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: email already registered
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: hashing or DB failure
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Create a new account
+      tags:
+      - auth
+  /auth/verify:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Checks the 6-digit code against the most recent
+        unused OTP for this email. On success, marks the
+        account verified and returns a usable token pair —
+        the caller is logged in immediately, no separate
+        Login call needed. Wrong-guess attempts count even on
+        failure; after 3 the code is dead regardless of
+        whether the next guess would've been right.
+      parameters:
+      - description: email and OTP code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/VerifyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TokenPairResponse'
+        "400":
+          description: no active code, code expired, or code incorrect
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "429":
+          description: too many wrong attempts against this code
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: DB or token-issuing failure
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Confirm signup OTP and activate the account
+      tags:
+      - auth
+  /v1/tickets:
+    get:
+      description: |-
+        Retrieves a paginated list of all betting tickets tracked by the authenticated user.
+        The tickets are ordered by when they were tracked (most recent first).
+        Provides high-level details like the total odds and overall ticket status.
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Paginated history list
+          schema:
+            $ref: '#/definitions/model.PaginatedHistoryResponse'
+        "401":
+          description: Unauthorized - missing or invalid token
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Database retrieval error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get paginated user ticket history
+      tags:
+      - tickets
+  /v1/tickets/{id}:
+    delete:
+      description: |-
+        Removes the link between the authenticated user and a specific ticket.
+        The underlying booking_code is not immediately deleted so that other users
+        tracking the same code are unaffected. A background job later sweeps orphaned codes.
+      parameters:
+      - description: UUID of the tracked user_ticket
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ticket successfully deleted
+          schema:
+            $ref: '#/definitions/MessageResponse'
+        "400":
+          description: Invalid ticket UUID format
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized - missing or invalid token
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Database deletion error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a tracked ticket
+      tags:
+      - tickets
+    get:
+      description: |-
+        Fetches the deep details of a specific ticket tracked by the user.
+        This includes a breakdown of every single match/selection on the ticket,
+        including the live status of the matches and the current odds.
+      parameters:
+      - description: UUID of the tracked user_ticket
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Detailed breakdown of the ticket's selections
+          schema:
+            items:
+              $ref: '#/definitions/model.TicketDetailItem'
+            type: array
+        "400":
+          description: Invalid ticket UUID format
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized - missing or invalid token
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Database retrieval error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get ticket details
+      tags:
+      - tickets
+  /v1/tickets/preview:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Fetches the latest odds and selections for a given booking code
+        from the specified provider (e.g. SPORTYBET) directly.
+        This does NOT save the ticket to the user's history, it merely
+        resolves the code and allows them to preview it before tracking.
+      parameters:
+      - description: Provider name and booking code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.PreviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved ticket details
+          schema:
+            $ref: '#/definitions/model.PreviewResponse'
+        "400":
+          description: Invalid provider, missing fields, or invalid code
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: External provider API failure or internal error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Preview a betting ticket from a provider
+      tags:
+      - tickets
+  /v1/tickets/track:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Links a previously previewed ticket (via booking_code_id) to the authenticated user.
+        Optionally includes a stake and a description (e.g., "Weekend acca").
+        Once tracked, the system will actively poll this ticket for live status updates.
+      parameters:
+      - description: Booking code ID, stake, and optional description
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.TrackRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ticket successfully tracked
+          schema:
+            $ref: '#/definitions/MessageResponse'
+        "400":
+          description: Invalid booking_code_id or missing fields
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized - missing or invalid token
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Database insertion error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Track a betting ticket
+      tags:
+      - tickets
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and the JWT access token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -2,7 +2,7 @@
 logs.json
 /ai
 .env.local
-docs/
+#docs/
 *.exe
 /tmp/
 .service/

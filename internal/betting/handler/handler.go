@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 
+	"slipwise/internal/apitypes"
 	"slipwise/internal/betting/model"
 	"slipwise/internal/betting/service"
 	db "slipwise/internal/db/generated"
@@ -32,21 +33,21 @@ func NewBettingHandler(svc *service.BettingService) *BettingHandler {
 // @Produce json
 // @Param request body model.PreviewRequest true "Preview request"
 // @Success 200 {object} model.PreviewResponse
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Failure 400 {object} apitypes.ErrorResponse
+// @Failure 500 {object} apitypes.ErrorResponse
 // @Router /v1/tickets/preview [post]
 func (h *BettingHandler) Preview(c *echo.Context) error {
 	var req model.PreviewRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid request body"})
 	}
 
 	result, err := h.svc.PreviewTicket(c.Request().Context(), req.Provider, req.Code)
 	if err != nil {
 		if errors.Is(err, service.ErrUnsupportedProvider) {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: err.Error()})
 	}
 
 	resp := model.PreviewResponse{
@@ -76,32 +77,33 @@ func (h *BettingHandler) Preview(c *echo.Context) error {
 // @Accept json
 // @Produce json
 // @Param request body model.TrackRequest true "Track request"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Success 200 {object} apitypes.MessageResponse
+// @Failure 400 {object} apitypes.ErrorResponse
+// @Failure 500 {object} apitypes.ErrorResponse
+// @Security BearerAuth
 // @Router /v1/tickets/track [post]
 func (h *BettingHandler) Track(c *echo.Context) error {
 	userID, ok := c.Get("user_id").(uuid.UUID)
 	if !ok || userID == uuid.Nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
 	}
 
 	var req model.TrackRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid request body"})
 	}
 
 	bookingCodeID, err := uuid.Parse(req.BookingCodeID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid booking code id"})
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid booking code id"})
 	}
 
 	err = h.svc.TrackTicket(c.Request().Context(), userID, bookingCodeID, req.Stake, req.Description)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"status": "success"})
+	return c.JSON(http.StatusOK, apitypes.MessageResponse{Message: "success"})
 }
 
 // GetHistory godoc
@@ -110,18 +112,19 @@ func (h *BettingHandler) Track(c *echo.Context) error {
 // @Tags tickets
 // @Produce json
 // @Success 200 {array} model.HistoryItem
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Failure 401 {object} apitypes.ErrorResponse
+// @Failure 500 {object} apitypes.ErrorResponse
+// @Security BearerAuth
 // @Router /v1/tickets [get]
 func (h *BettingHandler) GetHistory(c *echo.Context) error {
 	userID, ok := c.Get("user_id").(uuid.UUID)
 	if !ok || userID == uuid.Nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
 	}
 
 	history, err := h.svc.GetHistory(c.Request().Context(), userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: err.Error()})
 	}
 
 	var resp []model.HistoryItem
@@ -160,20 +163,21 @@ func (h *BettingHandler) GetHistory(c *echo.Context) error {
 // @Produce json
 // @Param id path string true "Ticket ID"
 // @Success 200 {array} model.TicketDetailItem
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Failure 400 {object} apitypes.ErrorResponse
+// @Failure 401 {object} apitypes.ErrorResponse
+// @Failure 500 {object} apitypes.ErrorResponse
+// @Security BearerAuth
 // @Router /v1/tickets/{id} [get]
 func (h *BettingHandler) GetTicketDetails(c *echo.Context) error {
 	userID, ok := c.Get("user_id").(uuid.UUID)
 	if !ok || userID == uuid.Nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
 	}
 
 	ticketIDStr := c.Param("id")
 	ticketID, err := uuid.Parse(ticketIDStr)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid ticket id"})
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid ticket id"})
 	}
 
 	details, err := h.svc.GetTicketDetails(c.Request().Context(), db.GetTicketDetailsParams{
@@ -181,7 +185,7 @@ func (h *BettingHandler) GetTicketDetails(c *echo.Context) error {
 		UserID: userID,
 	})
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: err.Error()})
 	}
 
 	var resp []model.TicketDetailItem
@@ -219,21 +223,22 @@ func (h *BettingHandler) GetTicketDetails(c *echo.Context) error {
 // @Tags tickets
 // @Produce json
 // @Param id path string true "Ticket ID"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
+// @Success 200 {object} apitypes.MessageResponse
+// @Failure 400 {object} apitypes.ErrorResponse
+// @Failure 401 {object} apitypes.ErrorResponse
+// @Failure 500 {object} apitypes.ErrorResponse
+// @Security BearerAuth
 // @Router /v1/tickets/{id} [delete]
 func (h *BettingHandler) DeleteTicket(c *echo.Context) error {
 	userID, ok := c.Get("user_id").(uuid.UUID)
 	if !ok || userID == uuid.Nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
 	}
 
 	ticketIDStr := c.Param("id")
 	ticketID, err := uuid.Parse(ticketIDStr)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid ticket id"})
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid ticket id"})
 	}
 
 	err = h.svc.DeleteTicket(c.Request().Context(), db.DeleteUserTicketParams{
@@ -241,8 +246,8 @@ func (h *BettingHandler) DeleteTicket(c *echo.Context) error {
 		UserID: userID,
 	})
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"status": "success"})
+	return c.JSON(http.StatusOK, apitypes.MessageResponse{Message: "success"})
 }

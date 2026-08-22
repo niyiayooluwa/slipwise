@@ -1,3 +1,4 @@
+// Package redundancy implements direct SportyBet fetching.
 package redundancy
 
 import (

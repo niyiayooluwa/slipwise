@@ -1,3 +1,4 @@
+// Package service implements betting logic.
 package service
 
 import (

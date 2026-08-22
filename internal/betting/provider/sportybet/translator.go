@@ -1,3 +1,4 @@
+// Package sportybet implements the SportyBet integration.
 package sportybet
 
 import (

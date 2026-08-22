@@ -137,6 +137,7 @@ func mountAuthRoutes(g *echo.Group, h *authhandler.AuthHandler, extractor echo.I
 	protected := g.Group("", auth.RequireAuth(jwtIssuer))
 	protected.GET("/me", h.Me)
 	protected.PATCH("/me", h.UpdateProfile)
+	protected.POST("/feedback", h.SubmitFeedback)
 }
 
 // mountBettingRoutes registers all /v1/tickets endpoints.
@@ -146,6 +147,7 @@ func mountBettingRoutes(g *echo.Group, h *bettinghandler.BettingHandler) {
 	g.POST("/track", h.Track)
 	g.GET("", h.GetHistory)
 	g.GET("/:id", h.GetTicketDetails)
+	g.PATCH("/:id", h.UpdateTicket)
 	g.DELETE("/:id", h.DeleteTicket)
 }
 

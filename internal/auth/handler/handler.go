@@ -467,3 +467,38 @@ func (h *AuthHandler) CheckUsername(c *echo.Context) error {
 		Available: available,
 	})
 }
+
+// SubmitFeedback godoc
+// @Summary      Submit app feedback
+// @Description  Sends user feedback to the admin email.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body model.FeedbackRequest true "Feedback payload"
+// @Success      200 {object} apitypes.MessageResponse "Feedback sent successfully"
+// @Failure      400 {object} apitypes.ErrorResponse "Invalid payload"
+// @Failure      401 {object} apitypes.ErrorResponse "Unauthorized - missing or invalid token"
+// @Failure      500 {object} apitypes.ErrorResponse "Internal server error"
+// @Security     BearerAuth
+// @Router       /auth/feedback [post]
+func (h *AuthHandler) SubmitFeedback(c *echo.Context) error {
+	userID, ok := c.Get("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
+	}
+
+	var req model.FeedbackRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: err.Error()})
+	}
+
+	if len(req.Feedback) < 10 {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "feedback must be at least 10 characters"})
+	}
+
+	if err := h.svc.SubmitFeedback(c.Request().Context(), userID, req.Feedback); err != nil {
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "failed to send feedback"})
+	}
+
+	return c.JSON(http.StatusOK, apitypes.MessageResponse{Message: "Feedback sent successfully"})
+}

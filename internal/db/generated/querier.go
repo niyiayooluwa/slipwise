@@ -14,7 +14,7 @@ import (
 type Querier interface {
 	CheckUsernameExists(ctx context.Context, username pgtype.Text) (bool, error)
 	CleanupOrphanedBookingCodes(ctx context.Context) error
-	CountUserHistory(ctx context.Context, userID uuid.UUID) (int64, error)
+	CountUserHistory(ctx context.Context, arg CountUserHistoryParams) (int64, error)
 	CreateBookingCode(ctx context.Context, arg CreateBookingCodeParams) (BookingCode, error)
 	CreateBookingSelection(ctx context.Context, arg CreateBookingSelectionParams) (BookingSelection, error)
 	CreateMatch(ctx context.Context, arg CreateMatchParams) (Match, error)
@@ -44,6 +44,7 @@ type Querier interface {
 	UpdateSelectionStatus(ctx context.Context, arg UpdateSelectionStatusParams) ([]uuid.UUID, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
+	UpdateUserTicket(ctx context.Context, arg UpdateUserTicketParams) (UserTicket, error)
 	UpsertUserTrack(ctx context.Context, arg UpsertUserTrackParams) (UserTicket, error)
 }
 

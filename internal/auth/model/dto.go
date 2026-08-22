@@ -122,3 +122,7 @@ type CheckUsernameResponse struct {
 	// Available is true if the username is not taken.
 	Available bool `json:"available" example:"true"`
 } // @name CheckUsernameResponse
+
+type FeedbackRequest struct {
+	Feedback string `json:"feedback" validate:"required,min=10,max=2000"`
+}

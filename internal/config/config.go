@@ -56,6 +56,8 @@ type Config struct {
 	GoogleClientID string
 	// CloudflareWorkerURL is the URL of the Cloudflare worker proxy.
 	CloudflareWorkerURL string
+	// FeedbackEmail is the admin email address where user feedback is sent.
+	FeedbackEmail string
 }
 
 // Load reads .env (if present) into the process environment, then
@@ -77,6 +79,7 @@ func Load() (*Config, error) {
 		Port:                os.Getenv("PORT"),
 		GoogleClientID:      os.Getenv("GOOGLE_CLIENT_ID"),
 		CloudflareWorkerURL: os.Getenv("CLOUDFLARE_WORKER_URL"),
+		FeedbackEmail:       os.Getenv("FEEDBACK_EMAIL"),
 	}
 
 	if cfg.Port == "" {
@@ -100,6 +103,7 @@ func Load() (*Config, error) {
 		"GMAIL_APP_PASSWORD":    cfg.GmailAppPassword,
 		"GOOGLE_CLIENT_ID":      cfg.GoogleClientID,
 		"CLOUDFLARE_WORKER_URL": cfg.CloudflareWorkerURL,
+		"FEEDBACK_EMAIL":        cfg.FeedbackEmail,
 	}
 
 	var missing []string

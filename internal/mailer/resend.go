@@ -70,3 +70,32 @@ func resendOtpEmailHTML(code string) string {
   <p style="color: #666;">This code expires in 10 minutes. If you didn't request this, you can ignore this email.</p>
 </div>`, code)
 }
+
+// SendFeedback emails user feedback to the admin.
+func (m *ResendMailer) SendFeedback(ctx context.Context, toEmail, userEmail, feedback string) error {
+	if os.Getenv("MOCK_EMAIL") == "true" {
+		slog.Info("MOCK_EMAIL intercept feedback", "to", toEmail, "fromUser", userEmail, "feedback", feedback)
+		return nil
+	}
+
+	htmlBody := fmt.Sprintf(`
+<div style="font-family: sans-serif; padding: 20px;">
+  <h2>New Feedback via App</h2>
+  <p><strong>From:</strong> %s</p>
+  <hr />
+  <p style="white-space: pre-wrap;">%s</p>
+</div>`, userEmail, feedback)
+
+	params := &resend.SendEmailRequest{
+		From:    m.from,
+		To:      []string{toEmail},
+		Subject: fmt.Sprintf("SlipWise Feedback from %s", userEmail),
+		Html:    htmlBody,
+	}
+
+	_, err := m.client.Emails.SendWithContext(ctx, params)
+	if err != nil {
+		return fmt.Errorf("resend: send feedback: %w", err)
+	}
+	return nil
+}

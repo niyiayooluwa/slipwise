@@ -3,11 +3,13 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/labstack/echo/v5"
 
 	"slipwise/internal/apitypes"
@@ -127,6 +129,7 @@ func (h *BettingHandler) Track(c *echo.Context) error {
 // @Produce      json
 // @Param        page query int false "Page number (default 1)"
 // @Param        limit query int false "Items per page (default 20, max 100)"
+// @Param        status query string false "Filter by status (PENDING, WON, LOST)"
 // @Success      200 {object} model.PaginatedHistoryResponse "Paginated history list"
 // @Failure      401 {object} apitypes.ErrorResponse "Unauthorized - missing or invalid token"
 // @Failure      500 {object} apitypes.ErrorResponse "Database retrieval error"
@@ -149,8 +152,9 @@ func (h *BettingHandler) GetHistory(c *echo.Context) error {
 		limit = 100
 	}
 	offset := (page - 1) * limit
+	status := c.QueryParam("status")
 
-	history, total, err := h.svc.GetHistory(c.Request().Context(), userID, int32(limit), int32(offset))
+	history, total, err := h.svc.GetHistory(c.Request().Context(), userID, int32(limit), int32(offset), status)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: err.Error()})
 	}
@@ -284,6 +288,62 @@ func (h *BettingHandler) DeleteTicket(c *echo.Context) error {
 	err = h.svc.DeleteTicket(c.Request().Context(), db.DeleteUserTicketParams{
 		ID:     ticketID,
 		UserID: userID,
+	})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, apitypes.MessageResponse{Message: "success"})
+}
+
+// UpdateTicket godoc
+// @Summary      Update a tracked ticket
+// @Description  Update the stake or description of a tracked ticket.
+// @Tags         tickets
+// @Accept       json
+// @Produce      json
+// @Param        id path string true "User Ticket ID"
+// @Param        request body model.TrackRequest true "Update payload"
+// @Success      200 {object} apitypes.MessageResponse "success"
+// @Failure      400 {object} apitypes.ErrorResponse "Invalid payload"
+// @Failure      401 {object} apitypes.ErrorResponse "Unauthorized - missing or invalid token"
+// @Failure      500 {object} apitypes.ErrorResponse "Database update error"
+// @Security     BearerAuth
+// @Router       /v1/tickets/{id} [patch]
+func (h *BettingHandler) UpdateTicket(c *echo.Context) error {
+	userID, ok := c.Get("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
+	}
+
+	ticketIDStr := c.Param("id")
+	ticketID, err := uuid.Parse(ticketIDStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid ticket id"})
+	}
+
+	var req model.TrackRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: err.Error()})
+	}
+
+	var stakeArg pgtype.Numeric
+	if req.Stake != nil {
+		stakeArg.Scan(fmt.Sprintf("%f", *req.Stake))
+	} else {
+		stakeArg.Valid = false
+	}
+
+	var descArg *string
+	if req.Description != "" {
+		descArg = &req.Description
+	}
+
+	_, err = h.svc.UpdateTicket(c.Request().Context(), db.UpdateUserTicketParams{
+		ID:          ticketID,
+		UserID:      userID,
+		Stake:       stakeArg,
+		Description: descArg,
 	})
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: err.Error()})

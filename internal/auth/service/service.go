@@ -8,6 +8,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"slipwise/internal/auth"
@@ -49,6 +50,7 @@ type Mailer interface {
 	// fatal to the calling request — an OTP that isn't actually
 	// delivered is a broken signup, not a soft failure.
 	SendOTP(ctx context.Context, email, code string) error
+	SendFeedback(ctx context.Context, toEmail, userEmail, feedback string) error
 }
 
 // TokenPair is what every successful auth operation (verify, login,
@@ -78,11 +80,18 @@ type AuthService struct {
 	issuer         *auth.JWTIssuer
 	mailer         Mailer
 	googleClientID string
+	feedbackEmail  string
 }
 
 // NewAuthService wires an AuthService from its dependencies.
-func NewAuthService(repo repository.AuthRepository, issuer *auth.JWTIssuer, mailer Mailer, googleClientID string) *AuthService {
-	return &AuthService{repo: repo, issuer: issuer, mailer: mailer, googleClientID: googleClientID}
+func NewAuthService(repo repository.AuthRepository, issuer *auth.JWTIssuer, mailer Mailer, googleClientID, feedbackEmail string) *AuthService {
+	return &AuthService{
+		repo:           repo,
+		issuer:         issuer,
+		mailer:         mailer,
+		googleClientID: googleClientID,
+		feedbackEmail:  feedbackEmail,
+	}
 }
 
 // Signup creates a new, unverified user and sends a signup OTP to
@@ -413,4 +422,18 @@ func (s *AuthService) CheckUsername(ctx context.Context, username string) (bool,
 		return false, err
 	}
 	return !exists, nil
+}
+
+// SubmitFeedback sends a user's feedback to the admin email.
+func (s *AuthService) SubmitFeedback(ctx context.Context, userID uuid.UUID, feedback string) error {
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("auth: get user for feedback: %w", err)
+	}
+
+	if s.feedbackEmail == "" {
+		return fmt.Errorf("auth: feedback email not configured")
+	}
+
+	return s.mailer.SendFeedback(ctx, s.feedbackEmail, user.Email, feedback)
 }

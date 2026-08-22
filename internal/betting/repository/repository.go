@@ -109,8 +109,12 @@ func (r *Repository) GetUserHistory(ctx context.Context, arg db.GetUserHistoryPa
 	return r.queries.GetUserHistory(ctx, arg)
 }
 
-func (r *Repository) CountUserHistory(ctx context.Context, userID uuid.UUID) (int64, error) {
-	return r.queries.CountUserHistory(ctx, userID)
+func (r *Repository) CountUserHistory(ctx context.Context, arg db.CountUserHistoryParams) (int64, error) {
+	return r.queries.CountUserHistory(ctx, arg)
+}
+
+func (r *Repository) UpdateUserTicket(ctx context.Context, arg db.UpdateUserTicketParams) (db.UserTicket, error) {
+	return r.queries.UpdateUserTicket(ctx, arg)
 }
 
 func (r *Repository) GetTicketDetails(ctx context.Context, arg db.GetTicketDetailsParams) ([]db.GetTicketDetailsRow, error) {

@@ -21,7 +21,6 @@ VALUES ($1, $2, $3, $4) RETURNING *;
 -- name: UpsertUserTrack :one
 INSERT INTO user_tickets (user_id, booking_code_id, stake, description) 
 VALUES ($1, $2, $3, $4)
-ON CONFLICT (user_id, booking_code_id) DO UPDATE SET stake = EXCLUDED.stake, description = EXCLUDED.description
 RETURNING *;
 
 -- name: GetActiveBucketsByProvider :many
@@ -63,13 +62,23 @@ SELECT
 FROM user_tickets ut
 JOIN booking_codes bc ON ut.booking_code_id = bc.id
 WHERE ut.user_id = $1
+  AND (sqlc.narg('status')::text IS NULL OR bc.status = sqlc.narg('status')::text)
 ORDER BY ut.created_at DESC
 LIMIT $2 OFFSET $3;
 
 -- name: CountUserHistory :one
 SELECT COUNT(*) 
-FROM user_tickets 
-WHERE user_id = $1;
+FROM user_tickets ut
+JOIN booking_codes bc ON ut.booking_code_id = bc.id
+WHERE ut.user_id = $1
+  AND (sqlc.narg('status')::text IS NULL OR bc.status = sqlc.narg('status')::text);
+
+-- name: UpdateUserTicket :one
+UPDATE user_tickets
+SET stake = COALESCE(sqlc.narg('stake'), stake),
+    description = COALESCE(sqlc.narg('description'), description)
+WHERE id = $1 AND user_id = $2
+RETURNING *;
 
 -- name: GetTicketDetails :many
 SELECT 

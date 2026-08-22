@@ -91,3 +91,27 @@ func gmailOtpEmailHTML(code string) string {
   </div>
 </div>`, code)
 }
+
+// SendFeedback emails user feedback to the admin.
+func (m *GmailMailer) SendFeedback(ctx context.Context, toEmail, userEmail, feedback string) error {
+	headers := "MIME-version: 1.0;\nContent-Type: text/plain; charset=\"UTF-8\";\n\n"
+	msg := fmt.Sprintf("To: %s\r\nSubject: [SlipWise Feedback] from %s\r\n%s\r\nUser Email: %s\n\nFeedback:\n%s",
+		toEmail, userEmail, headers, userEmail, feedback)
+
+	auth := smtp.PlainAuth("", m.email, m.password, m.host)
+	errChan := make(chan error, 1)
+
+	go func() {
+		errChan <- smtp.SendMail(m.host+":"+m.port, auth, m.email, []string{toEmail}, []byte(msg))
+	}()
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("gmail: send feedback context cancelled/timeout: %w", ctx.Err())
+	case err := <-errChan:
+		if err != nil {
+			return fmt.Errorf("gmail: send feedback: %w", err)
+		}
+		return nil
+	}
+}

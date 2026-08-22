@@ -153,6 +153,15 @@ definitions:
         example: user@example.com
         type: string
     type: object
+  model.FeedbackRequest:
+    properties:
+      feedback:
+        maxLength: 2000
+        minLength: 10
+        type: string
+    required:
+    - feedback
+    type: object
   model.HistoryItem:
     properties:
       code:
@@ -221,6 +230,8 @@ definitions:
       away_team:
         type: string
       home_team:
+        type: string
+      market_spec:
         type: string
       market_type:
         type: string
@@ -295,6 +306,42 @@ paths:
           schema:
             $ref: '#/definitions/ErrorResponse'
       summary: Check username availability
+      tags:
+      - auth
+  /auth/feedback:
+    post:
+      consumes:
+      - application/json
+      description: Sends user feedback to the admin email.
+      parameters:
+      - description: Feedback payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.FeedbackRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Feedback sent successfully
+          schema:
+            $ref: '#/definitions/MessageResponse'
+        "400":
+          description: Invalid payload
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized - missing or invalid token
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Submit app feedback
       tags:
       - auth
   /auth/forgot-password:
@@ -712,6 +759,10 @@ paths:
         in: query
         name: limit
         type: integer
+      - description: Filter by status (PENDING, WON, LOST)
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
@@ -803,6 +854,46 @@ paths:
       security:
       - BearerAuth: []
       summary: Get ticket details
+      tags:
+      - tickets
+    patch:
+      consumes:
+      - application/json
+      description: Update the stake or description of a tracked ticket.
+      parameters:
+      - description: User Ticket ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.TrackRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success
+          schema:
+            $ref: '#/definitions/MessageResponse'
+        "400":
+          description: Invalid payload
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized - missing or invalid token
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Database update error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a tracked ticket
       tags:
       - tickets
   /v1/tickets/preview:

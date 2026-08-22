@@ -25,12 +25,19 @@ func (q *Queries) CleanupOrphanedBookingCodes(ctx context.Context) error {
 
 const countUserHistory = `-- name: CountUserHistory :one
 SELECT COUNT(*) 
-FROM user_tickets 
-WHERE user_id = $1
+FROM user_tickets ut
+JOIN booking_codes bc ON ut.booking_code_id = bc.id
+WHERE ut.user_id = $1
+  AND ($2::text IS NULL OR bc.status = $2::text)
 `
 
-func (q *Queries) CountUserHistory(ctx context.Context, userID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countUserHistory, userID)
+type CountUserHistoryParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Status *string   `json:"status"`
+}
+
+func (q *Queries) CountUserHistory(ctx context.Context, arg CountUserHistoryParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countUserHistory, arg.UserID, arg.Status)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -336,6 +343,7 @@ SELECT
 FROM user_tickets ut
 JOIN booking_codes bc ON ut.booking_code_id = bc.id
 WHERE ut.user_id = $1
+  AND ($4::text IS NULL OR bc.status = $4::text)
 ORDER BY ut.created_at DESC
 LIMIT $2 OFFSET $3
 `
@@ -344,6 +352,7 @@ type GetUserHistoryParams struct {
 	UserID uuid.UUID `json:"user_id"`
 	Limit  int32     `json:"limit"`
 	Offset int32     `json:"offset"`
+	Status *string   `json:"status"`
 }
 
 type GetUserHistoryRow struct {
@@ -358,7 +367,12 @@ type GetUserHistoryRow struct {
 }
 
 func (q *Queries) GetUserHistory(ctx context.Context, arg GetUserHistoryParams) ([]GetUserHistoryRow, error) {
-	rows, err := q.db.Query(ctx, getUserHistory, arg.UserID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getUserHistory,
+		arg.UserID,
+		arg.Limit,
+		arg.Offset,
+		arg.Status,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -429,10 +443,43 @@ func (q *Queries) UpdateSelectionStatus(ctx context.Context, arg UpdateSelection
 	return items, nil
 }
 
+const updateUserTicket = `-- name: UpdateUserTicket :one
+UPDATE user_tickets
+SET stake = COALESCE($3, stake),
+    description = COALESCE($4, description)
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, booking_code_id, stake, created_at, description
+`
+
+type UpdateUserTicketParams struct {
+	ID          uuid.UUID      `json:"id"`
+	UserID      uuid.UUID      `json:"user_id"`
+	Stake       pgtype.Numeric `json:"stake"`
+	Description *string        `json:"description"`
+}
+
+func (q *Queries) UpdateUserTicket(ctx context.Context, arg UpdateUserTicketParams) (UserTicket, error) {
+	row := q.db.QueryRow(ctx, updateUserTicket,
+		arg.ID,
+		arg.UserID,
+		arg.Stake,
+		arg.Description,
+	)
+	var i UserTicket
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.BookingCodeID,
+		&i.Stake,
+		&i.CreatedAt,
+		&i.Description,
+	)
+	return i, err
+}
+
 const upsertUserTrack = `-- name: UpsertUserTrack :one
 INSERT INTO user_tickets (user_id, booking_code_id, stake, description) 
 VALUES ($1, $2, $3, $4)
-ON CONFLICT (user_id, booking_code_id) DO UPDATE SET stake = EXCLUDED.stake, description = EXCLUDED.description
 RETURNING id, user_id, booking_code_id, stake, created_at, description
 `
 

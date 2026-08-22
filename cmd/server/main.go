@@ -64,7 +64,7 @@ func main() {
 	gmailMailer := mailer.NewGmailMailer(cfg.GmailUser, cfg.GmailAppPassword)
 
 	authRepo := repository.NewAuthRepository(queries)
-	authSvc := authservice.NewAuthService(authRepo, jwtIssuer, gmailMailer, cfg.GoogleClientID)
+	authSvc := authservice.NewAuthService(authRepo, jwtIssuer, gmailMailer, cfg.GoogleClientID, cfg.FeedbackEmail)
 	authH := authhandler.NewAuthHandler(authSvc)
 
 	// Betting module

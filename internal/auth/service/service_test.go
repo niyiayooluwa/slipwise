@@ -271,7 +271,7 @@ func newTestService() (*service.AuthService, *fakeRepo, *fakeMailer) {
 	mailer := &fakeMailer{}
 	issuer := auth.NewJWTIssuer("test-secret")
 	googleClientID := "test-string"
-	return service.NewAuthService(repo, issuer, mailer, googleClientID), repo, mailer
+	return service.NewAuthService(repo, issuer, mailer, googleClientID, "test@admin.com"), repo, mailer
 }
 
 // --- Signup ---
@@ -719,4 +719,8 @@ func TestCheckUsername_Empty(t *testing.T) {
 	if available {
 		t.Fatal("expected empty username to be unavailable")
 	}
+}
+
+func (m *fakeMailer) SendFeedback(ctx context.Context, toEmail, userEmail, feedback string) error {
+	return nil
 }

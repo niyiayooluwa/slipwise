@@ -53,8 +53,8 @@ func (r *fakeRepo) GetUserHistory(ctx context.Context, arg db.GetUserHistoryPara
 	return rows, nil
 }
 
-func (r *fakeRepo) CountUserHistory(ctx context.Context, userID uuid.UUID) (int64, error) {
-	return int64(len(r.userTracks[userID])), nil
+func (r *fakeRepo) CountUserHistory(ctx context.Context, arg db.CountUserHistoryParams) (int64, error) {
+	return int64(len(r.userTracks[arg.UserID])), nil
 }
 
 func (r *fakeRepo) GetTicketDetails(ctx context.Context, arg db.GetTicketDetailsParams) ([]db.GetTicketDetailsRow, error) {
@@ -64,6 +64,10 @@ func (r *fakeRepo) GetTicketDetails(ctx context.Context, arg db.GetTicketDetails
 func (r *fakeRepo) DeleteUserTicket(ctx context.Context, arg db.DeleteUserTicketParams) error {
 	delete(r.userTracks[arg.UserID], arg.ID)
 	return nil
+}
+
+func (r *fakeRepo) UpdateUserTicket(ctx context.Context, arg db.UpdateUserTicketParams) (db.UserTicket, error) {
+	return db.UserTicket{}, nil
 }
 
 func (r *fakeRepo) CleanupOrphanedBookingCodes(ctx context.Context) error {
@@ -133,13 +137,13 @@ func TestGetHistory_ReturnsRows(t *testing.T) {
 	codeID := uuid.New()
 	repo.UpsertUserTrack(context.Background(), userID, codeID, nil, "")
 
-	reqCtx := context.Background()
-	rows, _, err := svc.GetHistory(reqCtx, userID, 20, 0)
+	ctx := context.Background()
+	history, _, err := svc.GetHistory(ctx, userID, 10, 0, "")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if len(rows) != 1 {
-		t.Errorf("expected 1 row, got %d", len(rows))
+	if len(history) != 1 {
+		t.Errorf("expected 1 row, got %d", len(history))
 	}
 }
 

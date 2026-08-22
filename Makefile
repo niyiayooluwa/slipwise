@@ -79,10 +79,10 @@ run: build
 # RESEND_FROM_ADDRESS.
 
 migrate-up:
-	goose -dir migrations postgres "$(DATABASE_URL)" up
+	GOOSE_DRIVER=postgres GOOSE_DBSTRING="$(DATABASE_URL)" goose -dir migrations up
 
 migrate-down:
-	goose -dir migrations postgres "$(DATABASE_URL)" down
+	GOOSE_DRIVER=postgres GOOSE_DBSTRING="$(DATABASE_URL)" goose -dir migrations down
 
 # --- housekeeping ---
 

@@ -38,7 +38,7 @@ func (c *directClientImpl) FetchLiveMatches(ctx context.Context) ([]LiveMatch, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	// Masquerade as a standard browser
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "application/json")
@@ -104,7 +104,7 @@ func (c *directClientImpl) FetchTicketByCode(ctx context.Context, shareCode stri
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Origin", "https://www.sportybet.com")

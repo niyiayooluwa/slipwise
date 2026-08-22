@@ -131,7 +131,9 @@ func TranslateSportyBet(payload SportyBetPayload) ([]domain.Match, []domain.Book
 
 	for _, sel := range payload.Data.Ticket.Selections {
 		item, exists := outcomeMap[sel.EventID]
-		if !exists { continue }
+		if !exists {
+			continue
+		}
 
 		if !seenMatches[item.EventID] {
 			matches = append(matches, domain.Match{
@@ -149,7 +151,9 @@ func TranslateSportyBet(payload SportyBetPayload) ([]domain.Match, []domain.Book
 		for _, market := range item.Markets {
 			if market.ID == sel.MarketID {
 				marketText := market.Name
-				if marketText == "" { marketText = market.Desc }
+				if marketText == "" {
+					marketText = market.Desc
+				}
 
 				mType = MapMarketType(marketText)
 				mSpec = CleanSpecifier(market.Specifier)
@@ -158,7 +162,9 @@ func TranslateSportyBet(payload SportyBetPayload) ([]domain.Match, []domain.Book
 					if outcome.ID == sel.OutcomeID {
 						selectionName = MapSelection(outcome.Desc)
 						parsedOdds, err := strconv.ParseFloat(outcome.Odds, 64)
-						if err == nil { odds = parsedOdds }
+						if err == nil {
+							odds = parsedOdds
+						}
 						break
 					}
 				}
@@ -285,7 +291,7 @@ func mapBaseMarket(desc string) string {
 	} else if strings.Contains(cleanDesc, "away team or any clean sheet") {
 		base = "AWAY_OR_CLEAN_SHEET"
 	}
-	
+
 	if base == "UNKNOWN" {
 		return "UNKNOWN"
 	}
@@ -362,9 +368,15 @@ func mapBaseSelection(desc string) string {
 		return "NONE"
 	}
 
-	if strings.HasPrefix(lower, "home (") { return "1" }
-	if strings.HasPrefix(lower, "draw (") { return "X" }
-	if strings.HasPrefix(lower, "away (") { return "2" }
+	if strings.HasPrefix(lower, "home (") {
+		return "1"
+	}
+	if strings.HasPrefix(lower, "draw (") {
+		return "X"
+	}
+	if strings.HasPrefix(lower, "away (") {
+		return "2"
+	}
 
 	if strings.Contains(lower, "/") {
 		res := lower

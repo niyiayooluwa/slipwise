@@ -62,10 +62,15 @@ func (h *BettingHandler) Preview(c *echo.Context) error {
 	}
 
 	for _, sel := range result.Ticket.Selections {
+		var specStr string
+		if sel.MarketSpec != nil {
+			specStr = *sel.MarketSpec
+		}
 		resp.Selections = append(resp.Selections, model.SelectionDetail{
 			HomeTeam:   sel.Match.HomeTeam,
 			AwayTeam:   sel.Match.AwayTeam,
 			MarketType: sel.MarketType,
+			MarketSpec: specStr,
 			Selection:  sel.Selection,
 			Odds:       sel.Odds,
 		})

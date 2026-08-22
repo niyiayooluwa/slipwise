@@ -14,6 +14,7 @@ type SelectionDetail struct {
 	HomeTeam   string  `json:"home_team"`
 	AwayTeam   string  `json:"away_team"`
 	MarketType string  `json:"market_type"`
+	MarketSpec string  `json:"market_spec,omitempty"`
 	Selection  string  `json:"selection"`
 	Odds       float64 `json:"odds"`
 }

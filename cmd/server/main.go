@@ -86,7 +86,7 @@ func main() {
 	go cleanupJob.Start(context.Background())
 
 	// Initialize FCM
-	fcmSvc, err := notification.NewFCMService(context.Background())
+	fcmSvc, err := notification.NewFCMService(context.Background(), cfg.FirebaseCredentialsJSON)
 	if err != nil {
 		slog.Warn("fcm initialization failed, falling back to NoopService", "error", err)
 		fcmSvc = &notification.NoopService{}

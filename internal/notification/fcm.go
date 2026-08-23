@@ -7,6 +7,7 @@ import (
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
+	"google.golang.org/api/option"
 )
 
 // Service defines the contract for sending push notifications.
@@ -18,9 +19,16 @@ type fcmService struct {
 	client *messaging.Client
 }
 
-// NewFCMService initializes the Firebase app using GOOGLE_APPLICATION_CREDENTIALS.
-func NewFCMService(ctx context.Context) (Service, error) {
-	app, err := firebase.NewApp(ctx, nil)
+// NewFCMService initializes the Firebase app using the provided credentials JSON string.
+func NewFCMService(ctx context.Context, credentialsJSON string) (Service, error) {
+	var opts []option.ClientOption
+
+	if credentialsJSON != "" {
+		//lint:ignore SA1019 We intentionally use raw JSON bytes from env variables instead of uploading a secure file.
+		opts = append(opts, option.WithCredentialsJSON([]byte(credentialsJSON)))
+	}
+
+	app, err := firebase.NewApp(ctx, nil, opts...)
 	if err != nil {
 		return nil, err
 	}

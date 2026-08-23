@@ -45,7 +45,7 @@ func (m *mockNotificationService) SendMulticast(ctx context.Context, tokens []st
 func TestLiveEvaluator_NotificationScenarios(t *testing.T) {
 	matchID := uuid.New()
 	providerID := "sr:match:123"
-	
+
 	// Create payload (Home team won 2-1)
 	payload := []byte(`{"setScore":"2:1","matchStatus":"ENDED"}`)
 

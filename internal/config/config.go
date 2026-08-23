@@ -58,6 +58,8 @@ type Config struct {
 	CloudflareWorkerURL string
 	// FeedbackEmail is the admin email address where user feedback is sent.
 	FeedbackEmail string
+	// FirebaseCredentialsJSON is the raw JSON key for Firebase Admin SDK.
+	FirebaseCredentialsJSON string
 }
 
 // Load reads .env (if present) into the process environment, then
@@ -72,14 +74,15 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		DatabaseURL:         os.Getenv("DATABASE_URL"),
-		JWTSecret:           os.Getenv("JWT_SECRET"),
-		GmailUser:           os.Getenv("GMAIL_USER"),
-		GmailAppPassword:    os.Getenv("GMAIL_APP_PASSWORD"),
-		Port:                os.Getenv("PORT"),
-		GoogleClientID:      os.Getenv("GOOGLE_CLIENT_ID"),
-		CloudflareWorkerURL: os.Getenv("CLOUDFLARE_WORKER_URL"),
-		FeedbackEmail:       os.Getenv("FEEDBACK_EMAIL"),
+		DatabaseURL:             os.Getenv("DATABASE_URL"),
+		JWTSecret:               os.Getenv("JWT_SECRET"),
+		GmailUser:               os.Getenv("GMAIL_USER"),
+		GmailAppPassword:        os.Getenv("GMAIL_APP_PASSWORD"),
+		Port:                    os.Getenv("PORT"),
+		GoogleClientID:          os.Getenv("GOOGLE_CLIENT_ID"),
+		CloudflareWorkerURL:     os.Getenv("CLOUDFLARE_WORKER_URL"),
+		FeedbackEmail:           os.Getenv("FEEDBACK_EMAIL"),
+		FirebaseCredentialsJSON: os.Getenv("FIREBASE_CREDENTIALS_JSON"),
 	}
 
 	if cfg.Port == "" {
@@ -97,13 +100,14 @@ func Load() (*Config, error) {
 	}
 
 	required := map[string]string{
-		"DATABASE_URL":          cfg.DatabaseURL,
-		"JWT_SECRET":            cfg.JWTSecret,
-		"GMAIL_USER":            cfg.GmailUser,
-		"GMAIL_APP_PASSWORD":    cfg.GmailAppPassword,
-		"GOOGLE_CLIENT_ID":      cfg.GoogleClientID,
-		"CLOUDFLARE_WORKER_URL": cfg.CloudflareWorkerURL,
-		"FEEDBACK_EMAIL":        cfg.FeedbackEmail,
+		"DATABASE_URL":              cfg.DatabaseURL,
+		"JWT_SECRET":                cfg.JWTSecret,
+		"GMAIL_USER":                cfg.GmailUser,
+		"GMAIL_APP_PASSWORD":        cfg.GmailAppPassword,
+		"GOOGLE_CLIENT_ID":          cfg.GoogleClientID,
+		"CLOUDFLARE_WORKER_URL":     cfg.CloudflareWorkerURL,
+		"FEEDBACK_EMAIL":            cfg.FeedbackEmail,
+		"FIREBASE_CREDENTIALS_JSON": cfg.FirebaseCredentialsJSON,
 	}
 
 	var missing []string

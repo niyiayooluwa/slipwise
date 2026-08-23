@@ -724,3 +724,11 @@ func TestCheckUsername_Empty(t *testing.T) {
 func (m *fakeMailer) SendFeedback(ctx context.Context, toEmail, userEmail, feedback string) error {
 	return nil
 }
+
+func (f *fakeRepo) UpsertDeviceToken(ctx context.Context, userID uuid.UUID, token string) error {
+	return nil
+}
+
+func (f *fakeRepo) DeleteDeviceToken(ctx context.Context, userID uuid.UUID, token string) error {
+	return nil
+}

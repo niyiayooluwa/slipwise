@@ -60,6 +60,13 @@ definitions:
           call.
         type: string
     type: object
+  RegisterDeviceRequest:
+    properties:
+      fcm_token:
+        type: string
+    required:
+    - fcm_token
+    type: object
   ResendOTPRequest:
     properties:
       email:
@@ -306,6 +313,43 @@ paths:
           schema:
             $ref: '#/definitions/ErrorResponse'
       summary: Check username availability
+      tags:
+      - auth
+  /auth/devices:
+    post:
+      consumes:
+      - application/json
+      description: Registers or updates a Firebase Cloud Messaging token for the authenticated
+        user to receive push notifications.
+      parameters:
+      - description: FCM Token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/RegisterDeviceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Register FCM Device Token
       tags:
       - auth
   /auth/feedback:

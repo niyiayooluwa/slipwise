@@ -8,7 +8,9 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"slipwise/internal/auth"
@@ -436,4 +438,14 @@ func (s *AuthService) SubmitFeedback(ctx context.Context, userID uuid.UUID, feed
 	}
 
 	return s.mailer.SendFeedback(ctx, s.feedbackEmail, user.Email, feedback)
+}
+
+// RegisterDevice registers an FCM token for the user.
+func (s *AuthService) RegisterDevice(ctx context.Context, userID uuid.UUID, token string) error {
+	err := s.repo.UpsertDeviceToken(ctx, userID, token)
+	if err != nil {
+		slog.Error("failed to upsert device token", "err", err, "user_id", userID)
+		return errors.New("failed to register device")
+	}
+	return nil
 }

@@ -42,6 +42,9 @@ type AuthRepository interface {
 	CreateOAuthConnection(ctx context.Context, userID uuid.UUID, provider, providerUserID string) error
 	GetUserByOAuthProvider(ctx context.Context, provider, providerUserID string) (db.User, error)
 	GetOAuthProvidersForUser(ctx context.Context, userID uuid.UUID) ([]string, error)
+
+	UpsertDeviceToken(ctx context.Context, userID uuid.UUID, token string) error
+	DeleteDeviceToken(ctx context.Context, userID uuid.UUID, token string) error
 }
 
 // repo is the concrete AuthRepository backed by sqlc/pgx.
@@ -186,4 +189,18 @@ func wrap(err error) error {
 		return ErrNotFound
 	}
 	return err
+}
+
+func (r *repo) UpsertDeviceToken(ctx context.Context, userID uuid.UUID, token string) error {
+	return wrap(r.q.UpsertDeviceToken(ctx, db.UpsertDeviceTokenParams{
+		UserID:   userID,
+		FcmToken: token,
+	}))
+}
+
+func (r *repo) DeleteDeviceToken(ctx context.Context, userID uuid.UUID, token string) error {
+	return wrap(r.q.DeleteDeviceToken(ctx, db.DeleteDeviceTokenParams{
+		UserID:   userID,
+		FcmToken: token,
+	}))
 }

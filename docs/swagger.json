@@ -50,6 +50,63 @@
                 }
             }
         },
+        "/auth/devices": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Registers or updates a Firebase Cloud Messaging token for the authenticated user to receive push notifications.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Register FCM Device Token",
+                "parameters": [
+                    {
+                        "description": "FCM Token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RegisterDeviceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/feedback": {
             "post": {
                 "security": [
@@ -1069,6 +1126,17 @@
             "properties": {
                 "refresh_token": {
                     "description": "RefreshToken is the token issued by a previous login/verify/refresh call.",
+                    "type": "string"
+                }
+            }
+        },
+        "RegisterDeviceRequest": {
+            "type": "object",
+            "required": [
+                "fcm_token"
+            ],
+            "properties": {
+                "fcm_token": {
                     "type": "string"
                 }
             }

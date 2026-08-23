@@ -138,6 +138,7 @@ func mountAuthRoutes(g *echo.Group, h *authhandler.AuthHandler, extractor echo.I
 	protected.GET("/me", h.Me)
 	protected.PATCH("/me", h.UpdateProfile)
 	protected.POST("/feedback", h.SubmitFeedback)
+	protected.POST("/devices", h.RegisterDevice)
 }
 
 // mountBettingRoutes registers all /v1/tickets endpoints.

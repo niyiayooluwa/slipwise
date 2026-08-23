@@ -502,3 +502,40 @@ func (h *AuthHandler) SubmitFeedback(c *echo.Context) error {
 
 	return c.JSON(http.StatusOK, apitypes.MessageResponse{Message: "Feedback sent successfully"})
 }
+
+// RegisterDevice handles POST /auth/devices.
+//
+//	@Summary		Register FCM Device Token
+//	@Description	Registers or updates a Firebase Cloud Messaging token for the authenticated user to receive push notifications.
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body		model.RegisterDeviceRequest	true	"FCM Token"
+//	@Success		200		{object}	apitypes.MessageResponse
+//	@Failure		400		{object}	apitypes.ErrorResponse
+//	@Failure		401		{object}	apitypes.ErrorResponse
+//	@Failure		500		{object}	apitypes.ErrorResponse
+//	@Router			/auth/devices [post]
+func (h *AuthHandler) RegisterDevice(c *echo.Context) error {
+	var req model.RegisterDeviceRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid json body"})
+	}
+
+	userIDStr, ok := c.Get("user_id").(string)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
+	}
+
+	if err := h.svc.RegisterDevice(c.Request().Context(), userID, req.FCMToken); err != nil {
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: "failed to register device"})
+	}
+
+	return c.JSON(http.StatusOK, apitypes.MessageResponse{Message: "device registered successfully"})
+}

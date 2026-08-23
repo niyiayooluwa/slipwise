@@ -126,3 +126,7 @@ type CheckUsernameResponse struct {
 type FeedbackRequest struct {
 	Feedback string `json:"feedback" validate:"required,min=10,max=2000"`
 }
+
+type RegisterDeviceRequest struct {
+	FCMToken string `json:"fcm_token" validate:"required"`
+} // @name RegisterDeviceRequest

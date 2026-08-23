@@ -46,7 +46,6 @@ func (q *Queries) CountUserHistory(ctx context.Context, arg CountUserHistoryPara
 const createBookingCode = `-- name: CreateBookingCode :one
 INSERT INTO booking_codes (provider, code, total_odds, status) 
 VALUES ($1, $2, $3, $4)
-ON CONFLICT (provider, code) DO UPDATE SET total_odds = EXCLUDED.total_odds, status = EXCLUDED.status
 RETURNING id, provider, code, status, total_odds
 `
 

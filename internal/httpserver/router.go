@@ -3,7 +3,6 @@
 package httpserver
 
 import (
-	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 	"slipwise/internal/auth"
 	authhandler "slipwise/internal/auth/handler"
 	bettinghandler "slipwise/internal/betting/handler"
+	"slipwise/internal/worker"
 
 	"github.com/go-chi/httprate"
 	"github.com/labstack/echo/v5"
@@ -26,6 +26,7 @@ import (
 type Handlers struct {
 	Auth    *authhandler.AuthHandler
 	Betting *bettinghandler.BettingHandler
+	Poller  *worker.Poller
 	// Realtime      *realtimehandler.RealtimeHandler
 	// Notifications *notificationshandler.NotificationsHandler
 }
@@ -58,49 +59,12 @@ func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string, t
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	// Debug endpoint to test outbound connectivity (remove in production)
-	e.GET("/debug/network", func(c *echo.Context) error {
-		client := &http.Client{Timeout: 5 * time.Second}
-
-		var result strings.Builder
-
-		// Test Cloudflare Worker
-		result.WriteString("Testing Cloudflare Worker...\n")
-		start := time.Now()
-		resp, err := client.Get("https://live-events.aytholu.workers.dev/ticket?code=Jycm08")
-		if err != nil {
-			result.WriteString(fmt.Sprintf("Worker Error: %v\n", err))
-		} else {
-			result.WriteString(fmt.Sprintf("Worker Status: %d\n", resp.StatusCode))
-			resp.Body.Close()
+	// Cron endpoint to manually trigger the settlement poller (useful for serverless setups).
+	e.POST("/internal/cron/settle", func(c *echo.Context) error {
+		if h.Poller != nil {
+			h.Poller.RunOnce(c.Request().Context())
 		}
-		result.WriteString(fmt.Sprintf("Worker Time: %v\n\n", time.Since(start)))
-
-		// Test Sportybet Direct
-		result.WriteString("Testing Sportybet Direct...\n")
-		start = time.Now()
-		resp2, err2 := client.Get("https://www.sportybet.com")
-		if err2 != nil {
-			result.WriteString(fmt.Sprintf("Sportybet Error: %v\n", err2))
-		} else {
-			result.WriteString(fmt.Sprintf("Sportybet Status: %d\n", resp2.StatusCode))
-			resp2.Body.Close()
-		}
-		result.WriteString(fmt.Sprintf("Sportybet Time: %v\n\n", time.Since(start)))
-
-		// Test Google (control)
-		result.WriteString("Testing Google (control)...\n")
-		start = time.Now()
-		resp3, err3 := client.Get("https://google.com")
-		if err3 != nil {
-			result.WriteString(fmt.Sprintf("Google Error: %v\n", err3))
-		} else {
-			result.WriteString(fmt.Sprintf("Google Status: %d\n", resp3.StatusCode))
-			resp3.Body.Close()
-		}
-		result.WriteString(fmt.Sprintf("Google Time: %v\n", time.Since(start)))
-
-		return c.String(http.StatusOK, result.String())
+		return c.JSON(http.StatusOK, map[string]string{"status": "settlement_triggered"})
 	})
 
 	authGroup := e.Group("/auth")

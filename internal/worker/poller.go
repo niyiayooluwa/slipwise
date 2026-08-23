@@ -52,12 +52,13 @@ func (p *Poller) Start(ctx context.Context) {
 			log.Println("Poller stopped")
 			return
 		case <-ticker.C:
-			p.tick(ctx)
+			p.RunOnce(ctx)
 		}
 	}
 }
 
-func (p *Poller) tick(ctx context.Context) {
+// RunOnce executes a single polling iteration. Exported so it can be triggered by external cron jobs.
+func (p *Poller) RunOnce(ctx context.Context) {
 	// 1. Fetch pending matches from the database
 	pendingMatches, err := p.repo.GetPendingMatches(ctx)
 	if err != nil {

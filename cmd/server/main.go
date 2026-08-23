@@ -103,6 +103,7 @@ func main() {
 	handlers := httpserver.Handlers{
 		Auth:    authH,
 		Betting: bettingH,
+		Poller:  poller,
 	}
 
 	r := httpserver.NewRouter(handlers, jwtIssuer, cfg.AllowedOrigins, cfg.TrustedProxyCIDRs)

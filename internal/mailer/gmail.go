@@ -6,10 +6,13 @@ package mailer
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/smtp"
 	"os"
+	"time"
 )
 
 // GmailMailer sends OTP emails via Gmail SMTP. Satisfies
@@ -28,8 +31,51 @@ func NewGmailMailer(email, appPassword string) *GmailMailer {
 		email:    email,
 		password: appPassword,
 		host:     "smtp.gmail.com",
-		port:     "587",
+		port:     "465",
 	}
+}
+
+// sendMailTLS forces an IPv4 connection to the SMTP server using implicit TLS on port 465.
+// This bypasses Railway dropping IPv6 connections to Gmail or blocking STARTTLS on port 587.
+func sendMailTLS(addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
+	dialer := &net.Dialer{Timeout: 5 * time.Second}
+	conn, err := tls.DialWithDialer(dialer, "tcp4", addr, &tls.Config{ServerName: "smtp.gmail.com"})
+	if err != nil {
+		return fmt.Errorf("tls dial: %w", err)
+	}
+	defer conn.Close()
+
+	c, err := smtp.NewClient(conn, "smtp.gmail.com")
+	if err != nil {
+		return fmt.Errorf("smtp new client: %w", err)
+	}
+	defer c.Quit()
+
+	if auth != nil {
+		if err = c.Auth(auth); err != nil {
+			return fmt.Errorf("smtp auth: %w", err)
+		}
+	}
+
+	if err = c.Mail(from); err != nil {
+		return fmt.Errorf("smtp mail: %w", err)
+	}
+	for _, addr := range to {
+		if err = c.Rcpt(addr); err != nil {
+			return fmt.Errorf("smtp rcpt: %w", err)
+		}
+	}
+
+	w, err := c.Data()
+	if err != nil {
+		return fmt.Errorf("smtp data: %w", err)
+	}
+	_, err = w.Write(msg)
+	if err != nil {
+		return fmt.Errorf("smtp write: %w", err)
+	}
+
+	return w.Close()
 }
 
 // SendOTP emails a 6-digit OTP code to the given address.
@@ -52,7 +98,7 @@ func (m *GmailMailer) SendOTP(ctx context.Context, toEmail, code string) error {
 	errChan := make(chan error, 1)
 
 	go func() {
-		errChan <- smtp.SendMail(m.host+":"+m.port, auth, m.email, []string{toEmail}, []byte(msg))
+		errChan <- sendMailTLS(m.host+":"+m.port, auth, m.email, []string{toEmail}, []byte(msg))
 	}()
 
 	// Listen for either the context cancelling or the email sending
@@ -102,7 +148,7 @@ func (m *GmailMailer) SendFeedback(ctx context.Context, toEmail, userEmail, feed
 	errChan := make(chan error, 1)
 
 	go func() {
-		errChan <- smtp.SendMail(m.host+":"+m.port, auth, m.email, []string{toEmail}, []byte(msg))
+		errChan <- sendMailTLS(m.host+":"+m.port, auth, m.email, []string{toEmail}, []byte(msg))
 	}()
 
 	select {

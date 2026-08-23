@@ -160,3 +160,7 @@ func floatPtrToNumeric(f *float64) pgtype.Numeric {
 	n.Scan(fmt.Sprintf("%f", *f))
 	return n
 }
+
+func (r *Repository) EvaluateTickets(ctx context.Context, bookingCodeIds []uuid.UUID) ([]db.EvaluateTicketsRow, error) {
+	return r.queries.EvaluateTickets(ctx, bookingCodeIds)
+}

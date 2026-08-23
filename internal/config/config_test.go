@@ -19,6 +19,7 @@ func TestLoad_Success(t *testing.T) {
 	t.Setenv("GOOGLE_CLIENT_ID", "test")
 	t.Setenv("CLOUDFLARE_WORKER_URL", "https://worker.dev")
 	t.Setenv("FEEDBACK_EMAIL", "test@admin.com")
+	t.Setenv("FIREBASE_CREDENTIALS_JSON", "{}")
 	// PORT deliberately left unset to also exercise the default below.
 
 	cfg, err := config.Load()
@@ -43,6 +44,7 @@ func TestLoad_MissingVars(t *testing.T) {
 	t.Setenv("GOOGLE_CLIENT_ID", "")
 	t.Setenv("CLOUDFLARE_WORKER_URL", "")
 	t.Setenv("FEEDBACK_EMAIL", "")
+	t.Setenv("FIREBASE_CREDENTIALS_JSON", "")
 
 	_, err := config.Load()
 	if err == nil {
@@ -67,6 +69,7 @@ func TestLoad_CustomPort(t *testing.T) {
 	t.Setenv("GOOGLE_CLIENT_ID", "test")
 	t.Setenv("CLOUDFLARE_WORKER_URL", "https://worker.dev")
 	t.Setenv("FEEDBACK_EMAIL", "test@admin.com")
+	t.Setenv("FIREBASE_CREDENTIALS_JSON", "{}")
 	t.Setenv("PORT", "9000")
 
 	cfg, err := config.Load()

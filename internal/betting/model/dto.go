@@ -11,12 +11,13 @@ type PreviewRequest struct {
 
 // SelectionDetail is a single game on the previewed ticket.
 type SelectionDetail struct {
-	HomeTeam   string  `json:"home_team"`
-	AwayTeam   string  `json:"away_team"`
-	MarketType string  `json:"market_type"`
-	MarketSpec string  `json:"market_spec,omitempty"`
-	Selection  string  `json:"selection"`
-	Odds       float64 `json:"odds"`
+	HomeTeam         string  `json:"home_team"`
+	AwayTeam         string  `json:"away_team"`
+	MarketType       string  `json:"market_type"`
+	MarketSpec       string  `json:"market_spec,omitempty"`
+	Selection        string  `json:"selection"`
+	DisplaySelection string  `json:"display_selection"`
+	Odds             float64 `json:"odds"`
 }
 
 // PreviewResponse is returned by POST /v1/tickets/preview.
@@ -49,16 +50,17 @@ type HistoryItem struct {
 
 // TicketDetailItem represents a single selection detail when viewing a tracked ticket.
 type TicketDetailItem struct {
-	SelectionID     string  `json:"selection_id"`
-	MarketType      string  `json:"market_type"`
-	MarketSpec      string  `json:"market_spec"`
-	Selection       string  `json:"selection"`
-	Odds            float64 `json:"odds"`
-	SelectionStatus string  `json:"selection_status"`
-	HomeTeam        string  `json:"home_team"`
-	AwayTeam        string  `json:"away_team"`
-	StartTime       string  `json:"start_time"`
-	MatchStatus     string  `json:"match_status"`
+	SelectionID      string  `json:"selection_id"`
+	MarketType       string  `json:"market_type"`
+	MarketSpec       string  `json:"market_spec"`
+	Selection        string  `json:"selection"`
+	DisplaySelection string  `json:"display_selection"`
+	Odds             float64 `json:"odds"`
+	SelectionStatus  string  `json:"selection_status"`
+	HomeTeam         string  `json:"home_team"`
+	AwayTeam         string  `json:"away_team"`
+	StartTime        string  `json:"start_time"`
+	MatchStatus      string  `json:"match_status"`
 }
 
 // PaginationMeta holds metadata for paginated responses.

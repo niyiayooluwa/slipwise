@@ -69,12 +69,13 @@ func (h *BettingHandler) Preview(c *echo.Context) error {
 			specStr = *sel.MarketSpec
 		}
 		resp.Selections = append(resp.Selections, model.SelectionDetail{
-			HomeTeam:   sel.Match.HomeTeam,
-			AwayTeam:   sel.Match.AwayTeam,
-			MarketType: sel.MarketType,
-			MarketSpec: specStr,
-			Selection:  sel.Selection,
-			Odds:       sel.Odds,
+			HomeTeam:         sel.Match.HomeTeam,
+			AwayTeam:         sel.Match.AwayTeam,
+			MarketType:       sel.MarketType,
+			MarketSpec:       specStr,
+			Selection:        sel.Selection,
+			DisplaySelection: service.FormatDisplaySelection(sel.MarketType, specStr, sel.Selection, sel.Match.HomeTeam, sel.Match.AwayTeam),
+			Odds:             sel.Odds,
 		})
 	}
 
@@ -239,16 +240,17 @@ func (h *BettingHandler) GetTicketDetails(c *echo.Context) error {
 		}
 
 		resp = append(resp, model.TicketDetailItem{
-			SelectionID:     row.SelectionID.String(),
-			MarketType:      row.MarketType,
-			MarketSpec:      marketSpec,
-			Selection:       row.Selection,
-			Odds:            odds.Float64,
-			SelectionStatus: row.SelectionStatus,
-			HomeTeam:        row.HomeTeam,
-			AwayTeam:        row.AwayTeam,
-			StartTime:       row.StartTime.Time.Format(time.RFC3339),
-			MatchStatus:     row.MatchStatus,
+			SelectionID:      row.SelectionID.String(),
+			MarketType:       row.MarketType,
+			MarketSpec:       marketSpec,
+			Selection:        row.Selection,
+			DisplaySelection: service.FormatDisplaySelection(row.MarketType, marketSpec, row.Selection, row.HomeTeam, row.AwayTeam),
+			Odds:             odds.Float64,
+			SelectionStatus:  row.SelectionStatus,
+			HomeTeam:         row.HomeTeam,
+			AwayTeam:         row.AwayTeam,
+			StartTime:        row.StartTime.Time.Format(time.RFC3339),
+			MatchStatus:      row.MatchStatus,
 		})
 	}
 

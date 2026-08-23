@@ -23,7 +23,9 @@ type Querier interface {
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateUserTicket(ctx context.Context, arg CreateUserTicketParams) (UserTicket, error)
+	DeleteDeviceToken(ctx context.Context, arg DeleteDeviceTokenParams) error
 	DeleteUserTicket(ctx context.Context, arg DeleteUserTicketParams) error
+	EvaluateTickets(ctx context.Context, bookingCodeIds []uuid.UUID) ([]EvaluateTicketsRow, error)
 	// Used by the Background Poller to find out what matches to fetch
 	GetActiveBucketsByProvider(ctx context.Context, provider string) ([]GetActiveBucketsByProviderRow, error)
 	GetLatestOTP(ctx context.Context, arg GetLatestOTPParams) (OtpCode, error)
@@ -34,6 +36,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByOAuthProvider(ctx context.Context, arg GetUserByOAuthProviderParams) (User, error)
+	GetUserDeviceTokens(ctx context.Context, userID uuid.UUID) ([]string, error)
 	GetUserHistory(ctx context.Context, arg GetUserHistoryParams) ([]GetUserHistoryRow, error)
 	IncrementOTPAttempts(ctx context.Context, id uuid.UUID) error
 	MarkEmailVerified(ctx context.Context, id uuid.UUID) error
@@ -45,6 +48,7 @@ type Querier interface {
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	UpdateUserTicket(ctx context.Context, arg UpdateUserTicketParams) (UserTicket, error)
+	UpsertDeviceToken(ctx context.Context, arg UpsertDeviceTokenParams) error
 	UpsertUserTrack(ctx context.Context, arg UpsertUserTrackParams) (UserTicket, error)
 }
 

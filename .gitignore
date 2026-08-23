@@ -8,4 +8,4 @@ logs.json
 .service/
 .idea/
 bin/
-cmd/translate
+cmd/translatefirebase-*.json

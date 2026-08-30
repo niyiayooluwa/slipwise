@@ -46,7 +46,7 @@ func (q *Queries) CountUserHistory(ctx context.Context, arg CountUserHistoryPara
 const createBookingCode = `-- name: CreateBookingCode :one
 INSERT INTO booking_codes (provider, code, total_odds, status) 
 VALUES ($1, $2, $3, $4)
-RETURNING id, provider, code, status, total_odds
+RETURNING id, provider, code, status, total_odds, created_at
 `
 
 type CreateBookingCodeParams struct {
@@ -70,6 +70,7 @@ func (q *Queries) CreateBookingCode(ctx context.Context, arg CreateBookingCodePa
 		&i.Code,
 		&i.Status,
 		&i.TotalOdds,
+		&i.CreatedAt,
 	)
 	return i, err
 }

@@ -1380,6 +1380,9 @@ const docTemplate = `{
                 "away_team": {
                     "type": "string"
                 },
+                "display_selection": {
+                    "type": "string"
+                },
                 "home_team": {
                     "type": "string"
                 },
@@ -1401,6 +1404,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "away_team": {
+                    "type": "string"
+                },
+                "display_selection": {
                     "type": "string"
                 },
                 "home_team": {

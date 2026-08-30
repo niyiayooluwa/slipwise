@@ -86,14 +86,14 @@ func mountAuthRoutes(g *echo.Group, h *authhandler.AuthHandler, extractor echo.I
 		httprate.LimitBy(5, time.Minute, clientIPKey(extractor)),
 	)
 
-	g.POST("/signup", h.Signup)
+	g.POST("/signup", h.Signup, loginRateLimit)
 	g.POST("/verify", h.Verify)
-	g.POST("/resend-otp", h.ResendOTP)
+	g.POST("/resend-otp", h.ResendOTP, loginRateLimit)
 	g.POST("/login", h.Login, loginRateLimit)
 	g.POST("/oauth/google", h.GoogleLogin, loginRateLimit)
 	g.POST("/forgot-password", h.ForgotPassword)
 	g.POST("/reset-password", h.ResetPassword)
-	g.GET("/check-username", h.CheckUsername)
+	g.GET("/check-username", h.CheckUsername, loginRateLimit)
 	g.POST("/refresh", h.Refresh)
 	g.POST("/logout", h.Logout)
 
@@ -101,7 +101,7 @@ func mountAuthRoutes(g *echo.Group, h *authhandler.AuthHandler, extractor echo.I
 	protected := g.Group("", auth.RequireAuth(jwtIssuer))
 	protected.GET("/me", h.Me)
 	protected.PATCH("/me", h.UpdateProfile)
-	protected.POST("/feedback", h.SubmitFeedback)
+	protected.POST("/feedback", h.SubmitFeedback, loginRateLimit)
 	protected.POST("/devices", h.RegisterDevice)
 }
 

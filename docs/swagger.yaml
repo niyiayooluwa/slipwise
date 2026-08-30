@@ -236,6 +236,8 @@ definitions:
     properties:
       away_team:
         type: string
+      display_selection:
+        type: string
       home_team:
         type: string
       market_spec:
@@ -250,6 +252,8 @@ definitions:
   model.TicketDetailItem:
     properties:
       away_team:
+        type: string
+      display_selection:
         type: string
       home_team:
         type: string

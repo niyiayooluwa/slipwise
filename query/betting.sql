@@ -112,6 +112,6 @@ WHERE id = $5;
 -- name: GetStuckMatches :many
 SELECT id, provider_id 
 FROM matches 
-WHERE status = 'PENDING' 
+WHERE status IN ('NOT_STARTED', 'LIVE')
   AND start_time < NOW() - INTERVAL '3 hours'
 LIMIT 5;

@@ -269,7 +269,7 @@ func (q *Queries) GetPendingBucketsForMatch(ctx context.Context, matchID uuid.UU
 const getStuckMatches = `-- name: GetStuckMatches :many
 SELECT id, provider_id 
 FROM matches 
-WHERE status = 'PENDING' 
+WHERE status IN ('NOT_STARTED', 'LIVE')
   AND start_time < NOW() - INTERVAL '3 hours'
 LIMIT 5
 `

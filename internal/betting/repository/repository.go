@@ -54,7 +54,7 @@ func (r *Repository) UpsertGlobalTicket(ctx context.Context, ticket *domain.Slip
 			HomeTeam:   sel.Match.HomeTeam,
 			AwayTeam:   sel.Match.AwayTeam,
 			StartTime:  pgtype.Timestamptz{Time: sel.Match.StartTime, Valid: true},
-			Status:     "PENDING",
+			Status:     "NOT_STARTED",
 			Provider:   ticket.Provider,
 			ProviderID: sel.ExternalMatchID,
 		})

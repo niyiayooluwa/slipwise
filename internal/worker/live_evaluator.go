@@ -20,6 +20,7 @@ type EvaluatorRepo interface {
 	GetPendingBucketsForMatch(ctx context.Context, matchID uuid.UUID) ([]db.GetPendingBucketsForMatchRow, error)
 	UpdateSelectionStatus(ctx context.Context, arg db.UpdateSelectionStatusParams) ([]uuid.UUID, error)
 	EvaluateTickets(ctx context.Context, bookingCodeIds []uuid.UUID) ([]db.EvaluateTicketsRow, error)
+	UpdateMatchState(ctx context.Context, arg db.UpdateMatchStateParams) error
 }
 
 type liveEvaluator struct {
@@ -35,6 +36,7 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 	var event struct {
 		SetScore    string `json:"setScore"`
 		MatchStatus string `json:"matchStatus"`
+		MatchTime   string `json:"matchTime"`
 	}
 	if err := json.Unmarshal(data, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal event data: %w", err)
@@ -45,6 +47,24 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 	if len(parts) == 2 {
 		home, _ = strconv.Atoi(parts[0])
 		away, _ = strconv.Atoi(parts[1])
+	}
+
+	// 1. Update match live state in DB
+	dbMatchStatus := "LIVE"
+	isEnded := strings.Contains(strings.ToLower(event.MatchStatus), "end") || strings.Contains(strings.ToLower(event.MatchStatus), "finish") || event.MatchStatus == "2" || event.MatchStatus == "3"
+	if isEnded {
+		dbMatchStatus = "ENDED"
+	}
+
+	err := e.repo.UpdateMatchState(ctx, db.UpdateMatchStateParams{
+		HomeScore: int32(home),
+		AwayScore: int32(away),
+		Status:    dbMatchStatus,
+		LiveTime:  &event.MatchTime,
+		ID:        matchID,
+	})
+	if err != nil {
+		log.Printf("Failed to update match state for %s: %v", providerID, err)
 	}
 
 	score := bettingservice.MatchScore{
@@ -73,6 +93,12 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 		}
 
 		status := bettingservice.EvaluateSelection(sel, score)
+
+		// Prevent False Losses: Only settle LOST if the match is officially ended!
+		if status == "LOST" && !isEnded {
+			status = "PENDING"
+		}
+
 		if status != "PENDING" {
 			// Fast settle the bucket!
 			ticketIDs, err := e.repo.UpdateSelectionStatus(ctx, db.UpdateSelectionStatusParams{
@@ -110,8 +136,14 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 		return fmt.Errorf("failed to evaluate tickets: %w", err)
 	}
 
-	// Group tokens by user/message to avoid spamming
-	// For MVP, we send directly.
+	// Group tokens by notification message to batch FCM multicast
+	type pushMsg struct {
+		Title  string
+		Body   string
+		Ticket string
+	}
+	notifications := make(map[pushMsg][]string)
+
 	for _, res := range evalResults {
 		var title, body string
 
@@ -129,11 +161,21 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 			body = fmt.Sprintf("Progress on ticket %s: %d/%d won.", res.BookingCode, res.WonLegs, res.TotalLegs)
 		}
 
-		if title != "" && res.FcmToken != "" {
-			_ = e.fcm.SendMulticast(context.Background(), []string{res.FcmToken}, title, body, map[string]string{
-				"ticket_id": res.BookingCodeID.String(),
-				"type":      "ticket_update",
-			})
+		// Only queue valid tokens (from the LEFT JOIN)
+		if title != "" && res.FcmToken != nil {
+			msg := pushMsg{Title: title, Body: body, Ticket: res.BookingCodeID.String()}
+			notifications[msg] = append(notifications[msg], *res.FcmToken)
+		}
+	}
+
+	// Dispatch batched notifications
+	for msg, tokens := range notifications {
+		err := e.fcm.SendMulticast(context.Background(), tokens, msg.Title, msg.Body, map[string]string{
+			"ticket_id": msg.Ticket,
+			"type":      "ticket_update",
+		})
+		if err != nil {
+			log.Printf("FCM Multicast error for ticket %s: %v", msg.Ticket, err)
 		}
 	}
 

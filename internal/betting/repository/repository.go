@@ -54,7 +54,7 @@ func (r *Repository) UpsertGlobalTicket(ctx context.Context, ticket *domain.Slip
 			HomeTeam:   sel.Match.HomeTeam,
 			AwayTeam:   sel.Match.AwayTeam,
 			StartTime:  pgtype.Timestamptz{Time: sel.Match.StartTime, Valid: true},
-			Status:     "PENDING",
+			Status:     "NOT_STARTED",
 			Provider:   ticket.Provider,
 			ProviderID: sel.ExternalMatchID,
 		})
@@ -163,4 +163,12 @@ func floatPtrToNumeric(f *float64) pgtype.Numeric {
 
 func (r *Repository) EvaluateTickets(ctx context.Context, bookingCodeIds []uuid.UUID) ([]db.EvaluateTicketsRow, error) {
 	return r.queries.EvaluateTickets(ctx, bookingCodeIds)
+}
+
+func (r *Repository) UpdateMatchState(ctx context.Context, arg db.UpdateMatchStateParams) error {
+	return r.queries.UpdateMatchState(ctx, arg)
+}
+
+func (r *Repository) GetStuckMatches(ctx context.Context) ([]db.GetStuckMatchesRow, error) {
+	return r.queries.GetStuckMatches(ctx)
 }

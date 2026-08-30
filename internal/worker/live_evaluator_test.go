@@ -31,6 +31,10 @@ func (m *mockEvaluatorRepo) EvaluateTickets(ctx context.Context, bookingCodeIds 
 	return m.evalTicketsResults, nil
 }
 
+func (m *mockEvaluatorRepo) UpdateMatchState(ctx context.Context, arg db.UpdateMatchStateParams) error {
+	return nil
+}
+
 type mockNotificationService struct {
 	sentTokens []string
 	sentTitles []string
@@ -49,6 +53,8 @@ func TestLiveEvaluator_NotificationScenarios(t *testing.T) {
 	// Create payload (Home team won 2-1)
 	payload := []byte(`{"setScore":"2:1","matchStatus":"ENDED"}`)
 
+	token := "token123"
+
 	tests := []struct {
 		name          string
 		stats         db.EvaluateTicketsRow
@@ -62,7 +68,7 @@ func TestLiveEvaluator_NotificationScenarios(t *testing.T) {
 				PendingLegs:   0,
 				LostLegs:      0,
 				BookingCodeID: uuid.New(),
-				FcmToken:      "token123",
+				FcmToken:      &token,
 			},
 			expectedTitle: "Ticket Won! \U0001f4b8\U0001f680",
 		},
@@ -73,7 +79,7 @@ func TestLiveEvaluator_NotificationScenarios(t *testing.T) {
 				TotalLegs:     10,
 				LostLegs:      1,
 				BookingCodeID: uuid.New(),
-				FcmToken:      "token123",
+				FcmToken:      &token,
 			},
 			expectedTitle: "Ticket Lost \u274c",
 		},
@@ -85,7 +91,7 @@ func TestLiveEvaluator_NotificationScenarios(t *testing.T) {
 				PendingLegs:   1, // 1 left!
 				LostLegs:      0,
 				BookingCodeID: uuid.New(),
-				FcmToken:      "token123",
+				FcmToken:      &token,
 			},
 			expectedTitle: "Sweat Alert! \U0001f630",
 		},
@@ -98,7 +104,7 @@ func TestLiveEvaluator_NotificationScenarios(t *testing.T) {
 				WonLegs:       5,
 				LostLegs:      0,
 				BookingCodeID: uuid.New(),
-				FcmToken:      "token123",
+				FcmToken:      &token,
 			},
 			expectedTitle: "Leg Secured! \u2705",
 		},

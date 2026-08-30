@@ -88,8 +88,8 @@ func main() {
 	// Initialize FCM
 	fcmSvc, err := notification.NewFCMService(context.Background(), cfg.FirebaseCredentialsJSON)
 	if err != nil {
-		slog.Warn("fcm initialization failed, falling back to NoopService", "error", err)
-		fcmSvc = &notification.NoopService{}
+		slog.Error("fcm initialization failed (invalid FIREBASE_CREDENTIALS_JSON)", "error", err)
+		os.Exit(1)
 	}
 
 	// Start live match poller

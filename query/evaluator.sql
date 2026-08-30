@@ -36,4 +36,4 @@ SELECT
 FROM stats s
 JOIN updated_tickets ut ON ut.id = s.booking_code_id
 JOIN user_tickets tkt ON tkt.booking_code_id = s.booking_code_id
-JOIN user_devices ud ON ud.user_id = tkt.user_id;
+LEFT JOIN user_devices ud ON ud.user_id = tkt.user_id;

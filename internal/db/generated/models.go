@@ -39,6 +39,9 @@ type Match struct {
 	StartTime  pgtype.Timestamptz `json:"start_time"`
 	Provider   string             `json:"provider"`
 	ProviderID string             `json:"provider_id"`
+	HomeScore  int32              `json:"home_score"`
+	AwayScore  int32              `json:"away_score"`
+	LiveTime   *string            `json:"live_time"`
 }
 
 type OauthConnection struct {

@@ -118,7 +118,7 @@ const createMatch = `-- name: CreateMatch :one
 INSERT INTO matches (home_team, away_team, start_time, status, provider, provider_id) 
 VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (provider, provider_id) DO UPDATE SET status = EXCLUDED.status
-RETURNING id, home_team, away_team, status, start_time, provider, provider_id
+RETURNING id, home_team, away_team, status, start_time, provider, provider_id, home_score, away_score, live_time
 `
 
 type CreateMatchParams struct {
@@ -148,6 +148,9 @@ func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (Match
 		&i.StartTime,
 		&i.Provider,
 		&i.ProviderID,
+		&i.HomeScore,
+		&i.AwayScore,
+		&i.LiveTime,
 	)
 	return i, err
 }
@@ -263,6 +266,39 @@ func (q *Queries) GetPendingBucketsForMatch(ctx context.Context, matchID uuid.UU
 	return items, nil
 }
 
+const getStuckMatches = `-- name: GetStuckMatches :many
+SELECT id, provider_id 
+FROM matches 
+WHERE status = 'PENDING' 
+  AND start_time < NOW() - INTERVAL '3 hours'
+LIMIT 5
+`
+
+type GetStuckMatchesRow struct {
+	ID         uuid.UUID `json:"id"`
+	ProviderID string    `json:"provider_id"`
+}
+
+func (q *Queries) GetStuckMatches(ctx context.Context) ([]GetStuckMatchesRow, error) {
+	rows, err := q.db.Query(ctx, getStuckMatches)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetStuckMatchesRow{}
+	for rows.Next() {
+		var i GetStuckMatchesRow
+		if err := rows.Scan(&i.ID, &i.ProviderID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTicketDetails = `-- name: GetTicketDetails :many
 SELECT 
     bs.id AS selection_id,
@@ -274,7 +310,10 @@ SELECT
     m.home_team,
     m.away_team,
     m.start_time,
-    m.status AS match_status
+    m.status AS match_status,
+    m.home_score,
+    m.away_score,
+    m.live_time
 FROM booking_selections bs
 JOIN matches m ON bs.match_id = m.id
 JOIN user_tickets ut ON ut.booking_code_id = bs.booking_code_id
@@ -297,6 +336,9 @@ type GetTicketDetailsRow struct {
 	AwayTeam        string             `json:"away_team"`
 	StartTime       pgtype.Timestamptz `json:"start_time"`
 	MatchStatus     string             `json:"match_status"`
+	HomeScore       int32              `json:"home_score"`
+	AwayScore       int32              `json:"away_score"`
+	LiveTime        *string            `json:"live_time"`
 }
 
 func (q *Queries) GetTicketDetails(ctx context.Context, arg GetTicketDetailsParams) ([]GetTicketDetailsRow, error) {
@@ -319,6 +361,9 @@ func (q *Queries) GetTicketDetails(ctx context.Context, arg GetTicketDetailsPara
 			&i.AwayTeam,
 			&i.StartTime,
 			&i.MatchStatus,
+			&i.HomeScore,
+			&i.AwayScore,
+			&i.LiveTime,
 		); err != nil {
 			return nil, err
 		}
@@ -398,6 +443,31 @@ func (q *Queries) GetUserHistory(ctx context.Context, arg GetUserHistoryParams) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateMatchState = `-- name: UpdateMatchState :exec
+UPDATE matches
+SET home_score = $1, away_score = $2, status = $3, live_time = $4
+WHERE id = $5
+`
+
+type UpdateMatchStateParams struct {
+	HomeScore int32     `json:"home_score"`
+	AwayScore int32     `json:"away_score"`
+	Status    string    `json:"status"`
+	LiveTime  *string   `json:"live_time"`
+	ID        uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateMatchState(ctx context.Context, arg UpdateMatchStateParams) error {
+	_, err := q.db.Exec(ctx, updateMatchState,
+		arg.HomeScore,
+		arg.AwayScore,
+		arg.Status,
+		arg.LiveTime,
+		arg.ID,
+	)
+	return err
 }
 
 const updateSelectionStatus = `-- name: UpdateSelectionStatus :many

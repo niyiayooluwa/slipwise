@@ -32,6 +32,7 @@ type Querier interface {
 	GetOAuthProvidersForUser(ctx context.Context, userID uuid.UUID) ([]string, error)
 	GetPendingBucketsForMatch(ctx context.Context, matchID uuid.UUID) ([]GetPendingBucketsForMatchRow, error)
 	GetRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
+	GetStuckMatches(ctx context.Context) ([]GetStuckMatchesRow, error)
 	GetTicketDetails(ctx context.Context, arg GetTicketDetailsParams) ([]GetTicketDetailsRow, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
@@ -43,6 +44,7 @@ type Querier interface {
 	MarkOTPUsed(ctx context.Context, id uuid.UUID) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
+	UpdateMatchState(ctx context.Context, arg UpdateMatchStateParams) error
 	// The Fast Settlement query!
 	UpdateSelectionStatus(ctx context.Context, arg UpdateSelectionStatusParams) ([]uuid.UUID, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error

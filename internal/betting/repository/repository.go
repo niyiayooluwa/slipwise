@@ -164,3 +164,11 @@ func floatPtrToNumeric(f *float64) pgtype.Numeric {
 func (r *Repository) EvaluateTickets(ctx context.Context, bookingCodeIds []uuid.UUID) ([]db.EvaluateTicketsRow, error) {
 	return r.queries.EvaluateTickets(ctx, bookingCodeIds)
 }
+
+func (r *Repository) UpdateMatchState(ctx context.Context, arg db.UpdateMatchStateParams) error {
+	return r.queries.UpdateMatchState(ctx, arg)
+}
+
+func (r *Repository) GetStuckMatches(ctx context.Context) ([]db.GetStuckMatchesRow, error) {
+	return r.queries.GetStuckMatches(ctx)
+}

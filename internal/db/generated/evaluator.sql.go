@@ -49,7 +49,7 @@ SELECT
 FROM stats s
 JOIN updated_tickets ut ON ut.id = s.booking_code_id
 JOIN user_tickets tkt ON tkt.booking_code_id = s.booking_code_id
-JOIN user_devices ud ON ud.user_id = tkt.user_id
+LEFT JOIN user_devices ud ON ud.user_id = tkt.user_id
 `
 
 type EvaluateTicketsRow struct {
@@ -62,7 +62,7 @@ type EvaluateTicketsRow struct {
 	PendingLegs   int32     `json:"pending_legs"`
 	VoidLegs      int32     `json:"void_legs"`
 	UserID        uuid.UUID `json:"user_id"`
-	FcmToken      string    `json:"fcm_token"`
+	FcmToken      *string   `json:"fcm_token"`
 }
 
 func (q *Queries) EvaluateTickets(ctx context.Context, bookingCodeIds []uuid.UUID) ([]EvaluateTicketsRow, error) {

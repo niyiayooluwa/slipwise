@@ -90,7 +90,10 @@ SELECT
     m.home_team,
     m.away_team,
     m.start_time,
-    m.status AS match_status
+    m.status AS match_status,
+    m.home_score,
+    m.away_score,
+    m.live_time
 FROM booking_selections bs
 JOIN matches m ON bs.match_id = m.id
 JOIN user_tickets ut ON ut.booking_code_id = bs.booking_code_id
@@ -100,3 +103,15 @@ WHERE ut.id = $1 AND ut.user_id = $2;
 DELETE FROM booking_codes
 WHERE id NOT IN (SELECT booking_code_id FROM user_tickets)
 AND created_at < NOW() - INTERVAL '7 days';
+
+-- name: UpdateMatchState :exec
+UPDATE matches
+SET home_score = $1, away_score = $2, status = $3, live_time = $4
+WHERE id = $5;
+
+-- name: GetStuckMatches :many
+SELECT id, provider_id 
+FROM matches 
+WHERE status = 'PENDING' 
+  AND start_time < NOW() - INTERVAL '3 hours'
+LIMIT 5;

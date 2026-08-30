@@ -17,6 +17,7 @@ type BookingCode struct {
 	Code      string         `json:"code"`
 	Status    string         `json:"status"`
 	TotalOdds pgtype.Numeric `json:"total_odds"`
+	CreatedAt time.Time      `json:"created_at"`
 }
 
 type BookingSelection struct {

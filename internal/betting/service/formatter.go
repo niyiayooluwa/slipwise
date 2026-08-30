@@ -53,48 +53,60 @@ func formatSingleMarket(marketType, marketSpec, selection, homeTeam, awayTeam st
 			return "Draw"
 		}
 		return baseSel + " to Win"
-	
+
 	case "DOUBLE_CHANCE", "1ST_HALF_DOUBLE_CHANCE", "2ND_HALF_DOUBLE_CHANCE":
 		return baseSel
-		
+
 	case "DRAW_NO_BET", "HOME_NO_BET", "AWAY_NO_BET":
 		if selection == "X" {
 			return "Draw"
 		}
 		return baseSel + " to Win (DNB)"
-		
+
 	case "OVER_UNDER", "1ST_HALF_OVER_UNDER", "2ND_HALF_OVER_UNDER":
 		spec := parseSpecifierTotal(marketSpec)
 		return baseSel + " " + spec + " Goals"
-		
+
 	case "HOME_OVER_UNDER":
 		spec := parseSpecifierTotal(marketSpec)
 		return homeTeam + " " + baseSel + " " + spec + " Goals"
-		
+
 	case "AWAY_OVER_UNDER":
 		spec := parseSpecifierTotal(marketSpec)
 		return awayTeam + " " + baseSel + " " + spec + " Goals"
-		
+
 	case "ASIAN_OVER_UNDER", "ASIAN_HANDICAP", "HANDICAP":
 		spec := parseSpecifierTotal(marketSpec)
 		return baseSel + " (" + spec + ")"
-		
+
 	case "BTTS", "1ST_HALF_BTTS", "2ND_HALF_BTTS":
 		if selection == "YES" {
 			return "Both Teams to Score"
 		}
 		return "Both Teams to Score: No"
-		
+
 	case "CORRECT_SCORE":
 		return "Correct Score: " + selection
-		
+
 	case "HT_FT":
 		parts := strings.Split(selection, "/")
 		if len(parts) == 2 {
 			ht := parts[0]
 			ft := parts[1]
-			if ht == "1" { ht = homeTeam } else if ht == "X" { ht = "Draw" } else if ht == "2" { ht = awayTeam }
-			if ft == "1" { ft = homeTeam } else if ft == "X" { ft = "Draw" } else if ft == "2" { ft = awayTeam }
+			if ht == "1" {
+				ht = homeTeam
+			} else if ht == "X" {
+				ht = "Draw"
+			} else if ht == "2" {
+				ht = awayTeam
+			}
+			if ft == "1" {
+				ft = homeTeam
+			} else if ft == "X" {
+				ft = "Draw"
+			} else if ft == "2" {
+				ft = awayTeam
+			}
 			return ht + " / " + ft
 		}
 		return selection

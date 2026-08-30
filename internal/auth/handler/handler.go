@@ -523,13 +523,8 @@ func (h *AuthHandler) RegisterDevice(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid json body"})
 	}
 
-	userIDStr, ok := c.Get("user_id").(string)
-	if !ok {
-		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
-	}
-
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
+	userID, ok := c.Get("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
 		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
 	}
 

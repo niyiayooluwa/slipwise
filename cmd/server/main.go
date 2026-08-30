@@ -62,10 +62,10 @@ func main() {
 	queries := db.New(pool)
 
 	jwtIssuer := auth.NewJWTIssuer(cfg.JWTSecret)
-	gmailMailer := mailer.NewGmailMailer(cfg.GmailUser, cfg.GmailAppPassword)
+	brevoMailer := mailer.NewBrevoMailer(cfg.BrevoAPIKey, cfg.BrevoSenderEmail)
 
 	authRepo := repository.NewAuthRepository(queries)
-	authSvc := authservice.NewAuthService(authRepo, jwtIssuer, gmailMailer, cfg.GoogleClientID, cfg.FeedbackEmail)
+	authSvc := authservice.NewAuthService(authRepo, jwtIssuer, brevoMailer, cfg.GoogleClientID, cfg.FeedbackEmail)
 	authH := authhandler.NewAuthHandler(authSvc)
 
 	// Betting module

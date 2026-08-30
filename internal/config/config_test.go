@@ -14,8 +14,8 @@ import (
 func TestLoad_Success(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://localhost/test")
 	t.Setenv("JWT_SECRET", "test-secret")
-	t.Setenv("GMAIL_USER", "test@gmail.com")
-	t.Setenv("GMAIL_APP_PASSWORD", "1234123412341234")
+	t.Setenv("BREVO_API_KEY", "test-key")
+	t.Setenv("BREVO_SENDER_EMAIL", "test@test.com")
 	t.Setenv("GOOGLE_CLIENT_ID", "test")
 	t.Setenv("CLOUDFLARE_WORKER_URL", "https://worker.dev")
 	t.Setenv("FEEDBACK_EMAIL", "test@admin.com")
@@ -39,8 +39,8 @@ func TestLoad_MissingVars(t *testing.T) {
 	// real environment this runs in) left something set.
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("JWT_SECRET", "")
-	t.Setenv("GMAIL_USER", "")
-	t.Setenv("GMAIL_APP_PASSWORD", "")
+	t.Setenv("BREVO_API_KEY", "")
+	t.Setenv("BREVO_SENDER_EMAIL", "")
 	t.Setenv("GOOGLE_CLIENT_ID", "")
 	t.Setenv("CLOUDFLARE_WORKER_URL", "")
 	t.Setenv("FEEDBACK_EMAIL", "")
@@ -54,7 +54,7 @@ func TestLoad_MissingVars(t *testing.T) {
 	// Check the error actually names what's missing, not just that
 	// something failed — this is what makes Load's error useful to a
 	// person reading it, and worth locking in with a test.
-	for _, want := range []string{"DATABASE_URL", "JWT_SECRET", "GMAIL_USER", "GMAIL_APP_PASSWORD", "GOOGLE_CLIENT_ID", "CLOUDFLARE_WORKER_URL"} {
+	for _, want := range []string{"DATABASE_URL", "JWT_SECRET", "BREVO_API_KEY", "BREVO_SENDER_EMAIL", "GOOGLE_CLIENT_ID", "CLOUDFLARE_WORKER_URL"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("expected error to mention %s, got: %v", want, err)
 		}
@@ -64,8 +64,8 @@ func TestLoad_MissingVars(t *testing.T) {
 func TestLoad_CustomPort(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://localhost/test")
 	t.Setenv("JWT_SECRET", "test-secret")
-	t.Setenv("GMAIL_USER", "test@gmail.com")
-	t.Setenv("GMAIL_APP_PASSWORD", "1234123412341234")
+	t.Setenv("BREVO_API_KEY", "test-key")
+	t.Setenv("BREVO_SENDER_EMAIL", "test@test.com")
 	t.Setenv("GOOGLE_CLIENT_ID", "test")
 	t.Setenv("CLOUDFLARE_WORKER_URL", "https://worker.dev")
 	t.Setenv("FEEDBACK_EMAIL", "test@admin.com")

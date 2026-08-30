@@ -28,10 +28,10 @@ type Config struct {
 	// JWTSecret signs and verifies access tokens. Must be a real
 	// generated secret in staging/prod, not a dev placeholder.
 	JWTSecret string
-	// GmailUser is the Gmail address used for sending OTPs.
-	GmailUser string
-	// GmailAppPassword is a 16-character App Password, NOT the standard account password.
-	GmailAppPassword string
+	// BrevoAPIKey is the API key used to authenticate with Brevo.
+	BrevoAPIKey string
+	// BrevoSenderEmail is the authorized sender email address in Brevo.
+	BrevoSenderEmail string
 	// Port is the HTTP port the server listens on. Optional — defaults
 	// to "8080" if unset, since a missing PORT shouldn't be fatal the
 	// way a missing DATABASE_URL is.
@@ -76,8 +76,8 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		DatabaseURL:             os.Getenv("DATABASE_URL"),
 		JWTSecret:               os.Getenv("JWT_SECRET"),
-		GmailUser:               os.Getenv("GMAIL_USER"),
-		GmailAppPassword:        os.Getenv("GMAIL_APP_PASSWORD"),
+		BrevoAPIKey:             os.Getenv("BREVO_API_KEY"),
+		BrevoSenderEmail:        os.Getenv("BREVO_SENDER_EMAIL"),
 		Port:                    os.Getenv("PORT"),
 		GoogleClientID:          os.Getenv("GOOGLE_CLIENT_ID"),
 		CloudflareWorkerURL:     os.Getenv("CLOUDFLARE_WORKER_URL"),
@@ -102,8 +102,8 @@ func Load() (*Config, error) {
 	required := map[string]string{
 		"DATABASE_URL":              cfg.DatabaseURL,
 		"JWT_SECRET":                cfg.JWTSecret,
-		"GMAIL_USER":                cfg.GmailUser,
-		"GMAIL_APP_PASSWORD":        cfg.GmailAppPassword,
+		"BREVO_API_KEY":             cfg.BrevoAPIKey,
+		"BREVO_SENDER_EMAIL":        cfg.BrevoSenderEmail,
 		"GOOGLE_CLIENT_ID":          cfg.GoogleClientID,
 		"CLOUDFLARE_WORKER_URL":     cfg.CloudflareWorkerURL,
 		"FEEDBACK_EMAIL":            cfg.FeedbackEmail,

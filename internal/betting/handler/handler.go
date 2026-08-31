@@ -259,6 +259,9 @@ func (h *BettingHandler) GetTicketDetails(c *echo.Context) error {
 			AwayTeam:         row.AwayTeam,
 			StartTime:        row.StartTime.Time.Format(time.RFC3339),
 			MatchStatus:      row.MatchStatus,
+			HomeScore:        row.HomeScore,
+			AwayScore:        row.AwayScore,
+			LiveTime:         row.LiveTime,
 		})
 	}
 

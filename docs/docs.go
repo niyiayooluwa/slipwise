@@ -1446,13 +1446,22 @@ const docTemplate = `{
         "model.TicketDetailItem": {
             "type": "object",
             "properties": {
+                "away_score": {
+                    "type": "integer"
+                },
                 "away_team": {
                     "type": "string"
                 },
                 "display_selection": {
                     "type": "string"
                 },
+                "home_score": {
+                    "type": "integer"
+                },
                 "home_team": {
+                    "type": "string"
+                },
+                "live_time": {
                     "type": "string"
                 },
                 "market_spec": {

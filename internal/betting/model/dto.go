@@ -61,6 +61,9 @@ type TicketDetailItem struct {
 	AwayTeam         string  `json:"away_team"`
 	StartTime        string  `json:"start_time"`
 	MatchStatus      string  `json:"match_status"`
+	HomeScore        int32   `json:"home_score"`
+	AwayScore        int32   `json:"away_score"`
+	LiveTime         *string `json:"live_time"`
 }
 
 // PaginationMeta holds metadata for paginated responses.

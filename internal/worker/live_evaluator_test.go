@@ -83,31 +83,7 @@ func TestLiveEvaluator_NotificationScenarios(t *testing.T) {
 			},
 			expectedTitle: "Ticket Lost \u274c",
 		},
-		{
-			name: "Sweat Alert",
-			stats: db.EvaluateTicketsRow{
-				TicketStatus:  "PENDING",
-				TotalLegs:     10,
-				PendingLegs:   1, // 1 left!
-				LostLegs:      0,
-				BookingCodeID: uuid.New(),
-				FcmToken:      &token,
-			},
-			expectedTitle: "Sweat Alert! \U0001f630",
-		},
-		{
-			name: "Match Progression",
-			stats: db.EvaluateTicketsRow{
-				TicketStatus:  "PENDING",
-				TotalLegs:     10,
-				PendingLegs:   5,
-				WonLegs:       5,
-				LostLegs:      0,
-				BookingCodeID: uuid.New(),
-				FcmToken:      &token,
-			},
-			expectedTitle: "Leg Secured! \u2705",
-		},
+
 	}
 
 	for _, tt := range tests {

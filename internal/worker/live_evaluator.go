@@ -94,8 +94,11 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 
 		status := bettingservice.EvaluateSelection(sel, score)
 
-		// Prevent False Losses: Only settle LOST if the match is officially ended!
-		if status == "LOST" && !isEnded {
+		// MVP Tech Debt: Disable Fast Settlement.
+		// To prevent False Wins (e.g. Double Chance at 0-0) and the VAR Problem
+		// (goals being cancelled after an Over is settled), we force all bets 
+		// to remain PENDING until the final whistle.
+		if !isEnded {
 			status = "PENDING"
 		}
 
@@ -153,13 +156,9 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 		} else if res.TicketStatus == "LOST" {
 			title = "Ticket Lost ❌"
 			body = fmt.Sprintf("Your ticket %s was busted.", res.BookingCode)
-		} else if res.PendingLegs == 1 && res.LostLegs == 0 {
-			title = "Sweat Alert! 😰"
-			body = fmt.Sprintf("Only ONE leg left to win ticket %s! Cash out or pray?", res.BookingCode)
-		} else if res.WonLegs > 0 {
-			title = "Leg Secured! ✅"
-			body = fmt.Sprintf("Progress on ticket %s: %d/%d won.", res.BookingCode, res.WonLegs, res.TotalLegs)
 		}
+		// "Sweat Alert" and "Leg Secured" notifications are temporarily disabled
+		// until Fast Settlement is re-introduced in a future phase.
 
 		// Only queue valid tokens (from the LEFT JOIN)
 		if title != "" && res.FcmToken != nil {

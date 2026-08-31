@@ -7,7 +7,18 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
+)
+
+type cachedResponse struct {
+	data      []byte
+	expiresAt time.Time
+}
+
+var (
+	ticketCache sync.Map
+	cacheTTL    = 60 * time.Second
 )
 
 // CloudflareClient defines the interface for communicating with the Cloudflare worker.
@@ -98,6 +109,15 @@ func (c *cloudflareClientImpl) FetchLiveMatches(ctx context.Context) ([]LiveMatc
 }
 
 func (c *cloudflareClientImpl) FetchTicketByCode(ctx context.Context, shareCode string) ([]byte, error) {
+	// 1. Check RAM Cache
+	if val, ok := ticketCache.Load(shareCode); ok {
+		cached := val.(cachedResponse)
+		if time.Now().Before(cached.expiresAt) {
+			return cached.data, nil
+		}
+		ticketCache.Delete(shareCode) // Evict expired
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.workerURL+"/ticket?code="+shareCode, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -118,5 +138,12 @@ func (c *cloudflareClientImpl) FetchTicketByCode(ctx context.Context, shareCode 
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
+
+	// 3. Save to RAM Cache
+	ticketCache.Store(shareCode, cachedResponse{
+		data:      data,
+		expiresAt: time.Now().Add(cacheTTL),
+	})
+
 	return data, nil
 }

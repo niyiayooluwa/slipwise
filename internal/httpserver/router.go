@@ -3,6 +3,7 @@
 package httpserver
 
 import (
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -75,7 +76,7 @@ func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string, t
 	protectedGroup.Use(auth.RequireAuth(jwtIssuer))
 
 	userGroup := protectedGroup.Group("/v1/users")
-	userGroup.GET("/me/stats", h.Betting.GetStats)
+	userGroup.GET("/me/stats", h.Betting.GetStats, CacheControl(10))
 
 	mountBettingRoutes(protectedGroup.Group("/v1/tickets"), h.Betting)
 
@@ -114,7 +115,7 @@ func mountAuthRoutes(g *echo.Group, h *authhandler.AuthHandler, extractor echo.I
 func mountBettingRoutes(g *echo.Group, h *bettinghandler.BettingHandler) {
 	g.POST("/preview", h.Preview)
 	g.POST("/track", h.Track)
-	g.GET("", h.GetHistory)
+	g.GET("", h.GetHistory, CacheControl(10))
 	g.GET("/:id", h.GetTicketDetails)
 	g.PATCH("/:id", h.UpdateTicket)
 	g.DELETE("/:id", h.DeleteTicket)
@@ -159,5 +160,16 @@ func clientIPKey(extractor echo.IPExtractor) httprate.KeyFunc {
 		// Canonicalize IPv6 by /64 prefix so a client rotating SLAAC
 		// addresses within the same delegation can't escape the rate limit.
 		return httprate.CanonicalizeIP(ip), nil
+	}
+}
+
+// CacheControl injects Cache-Control HTTP headers into responses.
+// This prevents the frontend from spamming read-heavy endpoints.
+func CacheControl(maxAgeSeconds int) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			c.Response().Header().Set("Cache-Control", fmt.Sprintf("private, max-age=%d", maxAgeSeconds))
+			return next(c)
+		}
 	}
 }

@@ -131,6 +131,7 @@ func (h *BettingHandler) Track(c *echo.Context) error {
 // @Param        page query int false "Page number (default 1)"
 // @Param        limit query int false "Items per page (default 20, max 100)"
 // @Param        status query string false "Filter by status (PENDING, WON, LOST)"
+// @Param        since query string false "Delta sync timestamp (RFC3339). Returns only tickets updated after this time."
 // @Success      200 {object} model.PaginatedHistoryResponse "Paginated history list"
 // @Failure      401 {object} apitypes.ErrorResponse "Unauthorized - missing or invalid token"
 // @Failure      500 {object} apitypes.ErrorResponse "Database retrieval error"
@@ -155,7 +156,14 @@ func (h *BettingHandler) GetHistory(c *echo.Context) error {
 	offset := (page - 1) * limit
 	status := c.QueryParam("status")
 
-	history, total, err := h.svc.GetHistory(c.Request().Context(), userID, int32(limit), int32(offset), status)
+	var sincePtr *time.Time
+	if sinceStr := c.QueryParam("since"); sinceStr != "" {
+		if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
+			sincePtr = &t
+		}
+	}
+
+	history, total, err := h.svc.GetHistory(c.Request().Context(), userID, int32(limit), int32(offset), status, sincePtr)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: err.Error()})
 	}

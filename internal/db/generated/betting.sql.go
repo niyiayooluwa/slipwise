@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -46,7 +47,7 @@ func (q *Queries) CountUserHistory(ctx context.Context, arg CountUserHistoryPara
 const createBookingCode = `-- name: CreateBookingCode :one
 INSERT INTO booking_codes (provider, code, total_odds, status) 
 VALUES ($1, $2, $3, $4)
-RETURNING id, provider, code, status, total_odds, created_at
+RETURNING id, provider, code, status, total_odds, created_at, updated_at
 `
 
 type CreateBookingCodeParams struct {
@@ -71,6 +72,7 @@ func (q *Queries) CreateBookingCode(ctx context.Context, arg CreateBookingCodePa
 		&i.Status,
 		&i.TotalOdds,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -384,20 +386,23 @@ SELECT
     bc.provider,
     bc.code,
     bc.total_odds,
-    bc.status AS overall_status
+    bc.status AS overall_status,
+    bc.updated_at
 FROM user_tickets ut
 JOIN booking_codes bc ON ut.booking_code_id = bc.id
 WHERE ut.user_id = $1
   AND ($4::text IS NULL OR bc.status = $4::text)
+  AND ($5::timestamptz IS NULL OR bc.updated_at > $5::timestamptz)
 ORDER BY ut.created_at DESC
 LIMIT $2 OFFSET $3
 `
 
 type GetUserHistoryParams struct {
-	UserID uuid.UUID `json:"user_id"`
-	Limit  int32     `json:"limit"`
-	Offset int32     `json:"offset"`
-	Status *string   `json:"status"`
+	UserID uuid.UUID  `json:"user_id"`
+	Limit  int32      `json:"limit"`
+	Offset int32      `json:"offset"`
+	Status *string    `json:"status"`
+	Since  *time.Time `json:"since"`
 }
 
 type GetUserHistoryRow struct {
@@ -409,6 +414,7 @@ type GetUserHistoryRow struct {
 	Code          string             `json:"code"`
 	TotalOdds     pgtype.Numeric     `json:"total_odds"`
 	OverallStatus string             `json:"overall_status"`
+	UpdatedAt     time.Time          `json:"updated_at"`
 }
 
 func (q *Queries) GetUserHistory(ctx context.Context, arg GetUserHistoryParams) ([]GetUserHistoryRow, error) {
@@ -417,6 +423,7 @@ func (q *Queries) GetUserHistory(ctx context.Context, arg GetUserHistoryParams) 
 		arg.Limit,
 		arg.Offset,
 		arg.Status,
+		arg.Since,
 	)
 	if err != nil {
 		return nil, err
@@ -434,6 +441,7 @@ func (q *Queries) GetUserHistory(ctx context.Context, arg GetUserHistoryParams) 
 			&i.Code,
 			&i.TotalOdds,
 			&i.OverallStatus,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

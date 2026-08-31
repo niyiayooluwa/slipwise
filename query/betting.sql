@@ -57,11 +57,13 @@ SELECT
     bc.provider,
     bc.code,
     bc.total_odds,
-    bc.status AS overall_status
+    bc.status AS overall_status,
+    bc.updated_at
 FROM user_tickets ut
 JOIN booking_codes bc ON ut.booking_code_id = bc.id
 WHERE ut.user_id = $1
   AND (sqlc.narg('status')::text IS NULL OR bc.status = sqlc.narg('status')::text)
+  AND (sqlc.narg('since')::timestamptz IS NULL OR bc.updated_at > sqlc.narg('since')::timestamptz)
 ORDER BY ut.created_at DESC
 LIMIT $2 OFFSET $3;
 

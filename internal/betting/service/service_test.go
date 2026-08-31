@@ -138,7 +138,7 @@ func TestGetHistory_ReturnsRows(t *testing.T) {
 	repo.UpsertUserTrack(context.Background(), userID, codeID, nil, "")
 
 	ctx := context.Background()
-	history, _, err := svc.GetHistory(ctx, userID, 10, 0, "")
+	history, _, err := svc.GetHistory(ctx, userID, 10, 0, "", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

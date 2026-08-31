@@ -811,6 +811,11 @@ paths:
         in: query
         name: status
         type: string
+      - description: Delta sync timestamp (RFC3339). Returns only tickets updated
+          after this time.
+        in: query
+        name: since
+        type: string
       produces:
       - application/json
       responses:

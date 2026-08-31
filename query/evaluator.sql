@@ -17,7 +17,8 @@ updated_tickets AS (
         WHEN s.lost_legs > 0 THEN 'LOST'
         WHEN s.pending_legs = 0 AND s.lost_legs = 0 THEN 'WON'
         ELSE 'PENDING'
-    END
+    END,
+    updated_at = NOW()
     FROM stats s
     WHERE bc.id = s.booking_code_id 
     RETURNING bc.id, bc.status, bc.code

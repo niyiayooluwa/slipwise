@@ -3,6 +3,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -78,8 +79,8 @@ func (s *BettingService) TrackTicket(ctx context.Context, userID, bookingCodeID 
 	return s.repo.UpsertUserTrack(ctx, userID, bookingCodeID, stake, description)
 }
 
-// GetHistory fetches the user's tracked tickets with pagination and optional status filter.
-func (s *BettingService) GetHistory(ctx context.Context, userID uuid.UUID, limit, offset int32, status string) ([]db.GetUserHistoryRow, int64, error) {
+// GetHistory fetches the user's tracked tickets with pagination, optional status filter, and optional delta sync timestamp.
+func (s *BettingService) GetHistory(ctx context.Context, userID uuid.UUID, limit, offset int32, status string, since *time.Time) ([]db.GetUserHistoryRow, int64, error) {
 	var statusArg *string
 	if status != "" {
 		statusArg = &status
@@ -90,6 +91,7 @@ func (s *BettingService) GetHistory(ctx context.Context, userID uuid.UUID, limit
 		Status: statusArg,
 		Limit:  limit,
 		Offset: offset,
+		Since:  since,
 	})
 	if err != nil {
 		return nil, 0, err

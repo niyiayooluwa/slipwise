@@ -757,6 +757,12 @@ const docTemplate = `{
                         "description": "Filter by status (PENDING, WON, LOST)",
                         "name": "status",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Delta sync timestamp (RFC3339). Returns only tickets updated after this time.",
+                        "name": "since",
+                        "in": "query"
                     }
                 ],
                 "responses": {

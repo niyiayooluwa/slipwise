@@ -10,6 +10,7 @@ CREATE TABLE user_stats (
 );
 
 -- Trigger 1: When a user tracks a new ticket
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION trigger_increment_new_ticket()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -22,12 +23,14 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 CREATE TRIGGER on_ticket_tracked
 AFTER INSERT ON user_tickets
 FOR EACH ROW EXECUTE FUNCTION trigger_increment_new_ticket();
 
 -- Trigger 2: When the background worker settles a booking code
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION trigger_settle_ticket_stats()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -48,6 +51,7 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 CREATE TRIGGER on_booking_code_settled
 AFTER UPDATE OF status ON booking_codes

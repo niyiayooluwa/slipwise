@@ -1056,6 +1056,43 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/v1/users/me/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves aggregated, materialized stats for the authenticated user (win/loss, ROI).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tickets"
+                ],
+                "summary": "Get user betting statistics",
+                "responses": {
+                    "200": {
+                        "description": "User statistics",
+                        "schema": {
+                            "$ref": "#/definitions/model.UserStatsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1456,6 +1493,32 @@ const docTemplate = `{
                 "stake": {
                     "description": "null = stakeless social tracking",
                     "type": "number"
+                }
+            }
+        },
+        "model.UserStatsResponse": {
+            "type": "object",
+            "properties": {
+                "lost_tickets": {
+                    "type": "integer"
+                },
+                "net_profit": {
+                    "type": "number"
+                },
+                "pending_tickets": {
+                    "type": "integer"
+                },
+                "total_returns": {
+                    "type": "number"
+                },
+                "total_staked": {
+                    "type": "number"
+                },
+                "total_tickets": {
+                    "type": "integer"
+                },
+                "won_tickets": {
+                    "type": "integer"
                 }
             }
         }

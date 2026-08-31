@@ -39,6 +39,7 @@ type Querier interface {
 	GetUserByOAuthProvider(ctx context.Context, arg GetUserByOAuthProviderParams) (User, error)
 	GetUserDeviceTokens(ctx context.Context, userID uuid.UUID) ([]string, error)
 	GetUserHistory(ctx context.Context, arg GetUserHistoryParams) ([]GetUserHistoryRow, error)
+	GetUserStats(ctx context.Context, userID uuid.UUID) (GetUserStatsRow, error)
 	IncrementOTPAttempts(ctx context.Context, id uuid.UUID) error
 	MarkEmailVerified(ctx context.Context, id uuid.UUID) error
 	MarkOTPUsed(ctx context.Context, id uuid.UUID) error

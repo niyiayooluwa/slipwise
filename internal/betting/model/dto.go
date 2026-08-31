@@ -76,3 +76,14 @@ type PaginatedHistoryResponse struct {
 	Data []HistoryItem  `json:"data"`
 	Meta PaginationMeta `json:"meta"`
 }
+
+// UserStatsResponse represents a user's materialized betting stats.
+type UserStatsResponse struct {
+	TotalTickets   int32   `json:"total_tickets"`
+	WonTickets     int32   `json:"won_tickets"`
+	LostTickets    int32   `json:"lost_tickets"`
+	PendingTickets int32   `json:"pending_tickets"`
+	TotalStaked    float64 `json:"total_staked"`
+	TotalReturns   float64 `json:"total_returns"`
+	NetProfit      float64 `json:"net_profit"`
+}

@@ -94,6 +94,16 @@ type UserDevice struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type UserStat struct {
+	UserID         uuid.UUID      `json:"user_id"`
+	TotalTickets   int32          `json:"total_tickets"`
+	WonTickets     int32          `json:"won_tickets"`
+	LostTickets    int32          `json:"lost_tickets"`
+	PendingTickets int32          `json:"pending_tickets"`
+	TotalStaked    pgtype.Numeric `json:"total_staked"`
+	TotalReturns   pgtype.Numeric `json:"total_returns"`
+}
+
 type UserTicket struct {
 	ID            uuid.UUID          `json:"id"`
 	UserID        uuid.UUID          `json:"user_id"`

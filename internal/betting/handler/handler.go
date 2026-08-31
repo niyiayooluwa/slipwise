@@ -361,3 +361,45 @@ func (h *BettingHandler) UpdateTicket(c *echo.Context) error {
 
 	return c.JSON(http.StatusOK, apitypes.MessageResponse{Message: "success"})
 }
+
+// GetStats godoc
+// @Summary      Get user betting statistics
+// @Description  Retrieves aggregated, materialized stats for the authenticated user (win/loss, ROI).
+// @Tags         tickets
+// @Produce      json
+// @Success      200 {object} model.UserStatsResponse "User statistics"
+// @Failure      401 {object} apitypes.ErrorResponse "Unauthorized"
+// @Failure      500 {object} apitypes.ErrorResponse "Internal server error"
+// @Security     BearerAuth
+// @Router       /v1/users/me/stats [get]
+func (h *BettingHandler) GetStats(c *echo.Context) error {
+	userID, ok := c.Get("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
+	}
+
+	stats, err := h.svc.GetUserStats(c.Request().Context(), userID)
+	if err != nil {
+		// If no tickets exist, SQLC might return sql.ErrNoRows. Let's return 0s gracefully.
+		if err.Error() == "no rows in result set" {
+			return c.JSON(http.StatusOK, model.UserStatsResponse{})
+		}
+		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: err.Error()})
+	}
+
+	totalStaked, _ := stats.TotalStaked.Float64Value()
+	totalReturns, _ := stats.TotalReturns.Float64Value()
+	netProfit, _ := stats.NetProfit.Float64Value()
+
+	resp := model.UserStatsResponse{
+		TotalTickets:   stats.TotalTickets,
+		WonTickets:     stats.WonTickets,
+		LostTickets:    stats.LostTickets,
+		PendingTickets: stats.PendingTickets,
+		TotalStaked:    totalStaked.Float64,
+		TotalReturns:   totalReturns.Float64,
+		NetProfit:      netProfit.Float64,
+	}
+
+	return c.JSON(http.StatusOK, resp)
+}

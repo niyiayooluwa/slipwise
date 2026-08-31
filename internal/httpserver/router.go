@@ -73,6 +73,10 @@ func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string, t
 	// Protected routes behind JWT auth
 	protectedGroup := e.Group("")
 	protectedGroup.Use(auth.RequireAuth(jwtIssuer))
+
+	userGroup := protectedGroup.Group("/v1/users")
+	userGroup.GET("/me/stats", h.Betting.GetStats)
+
 	mountBettingRoutes(protectedGroup.Group("/v1/tickets"), h.Betting)
 
 	return e

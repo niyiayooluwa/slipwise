@@ -39,6 +39,10 @@ func (r *fakeRepo) UpsertUserTrack(ctx context.Context, userID, bookingCodeID uu
 	return nil
 }
 
+func (r *fakeRepo) GetUserStats(ctx context.Context, userID uuid.UUID) (db.GetUserStatsRow, error) {
+	return db.GetUserStatsRow{}, nil
+}
+
 func (r *fakeRepo) GetUserHistory(ctx context.Context, arg db.GetUserHistoryParams) ([]db.GetUserHistoryRow, error) {
 	var rows []db.GetUserHistoryRow
 	for id := range r.userTracks[arg.UserID] {

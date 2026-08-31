@@ -109,6 +109,10 @@ func (r *Repository) GetUserHistory(ctx context.Context, arg db.GetUserHistoryPa
 	return r.queries.GetUserHistory(ctx, arg)
 }
 
+func (r *Repository) GetUserStats(ctx context.Context, userID uuid.UUID) (db.GetUserStatsRow, error) {
+	return r.queries.GetUserStats(ctx, userID)
+}
+
 func (r *Repository) CountUserHistory(ctx context.Context, arg db.CountUserHistoryParams) (int64, error) {
 	return r.queries.CountUserHistory(ctx, arg)
 }

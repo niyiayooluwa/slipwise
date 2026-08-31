@@ -22,6 +22,7 @@ type TicketProvider interface {
 type Repository interface {
 	UpsertGlobalTicket(ctx context.Context, ticket *domain.SlipwiseTicket) (uuid.UUID, error)
 	UpsertUserTrack(ctx context.Context, userID, bookingCodeID uuid.UUID, stake *float64, description string) error
+	GetUserStats(ctx context.Context, userID uuid.UUID) (db.GetUserStatsRow, error)
 	GetUserHistory(ctx context.Context, arg db.GetUserHistoryParams) ([]db.GetUserHistoryRow, error)
 	CountUserHistory(ctx context.Context, arg db.CountUserHistoryParams) (int64, error)
 	GetTicketDetails(ctx context.Context, arg db.GetTicketDetailsParams) ([]db.GetTicketDetailsRow, error)
@@ -77,6 +78,11 @@ func (s *BettingService) PreviewTicket(ctx context.Context, provider string, sha
 // TrackTicket associates a previously previewed booking code with a user.
 func (s *BettingService) TrackTicket(ctx context.Context, userID, bookingCodeID uuid.UUID, stake *float64, description string) error {
 	return s.repo.UpsertUserTrack(ctx, userID, bookingCodeID, stake, description)
+}
+
+// GetUserStats fetches the user's materialized betting stats.
+func (s *BettingService) GetUserStats(ctx context.Context, userID uuid.UUID) (db.GetUserStatsRow, error) {
+	return s.repo.GetUserStats(ctx, userID)
 }
 
 // GetHistory fetches the user's tracked tickets with pagination, optional status filter, and optional delta sync timestamp.

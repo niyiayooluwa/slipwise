@@ -1,3 +1,5 @@
+// Package service houses the core betting business logic, including the
+// Mathematical Evaluation Engine (evaluator.go) and the Selection Formatter (formatter.go).
 package service
 
 import (
@@ -8,13 +10,19 @@ import (
 	"slipwise/internal/betting/domain"
 )
 
+// MatchScore carries the full score progression of a football match.
 type MatchScore struct {
-	HomeScoreHT int
-	AwayScoreHT int
-	HomeScoreFT int
-	AwayScoreFT int
+	HomeScoreHT int // Half-time score (e.g. 1)
+	AwayScoreHT int // Half-time score (e.g. 0)
+	HomeScoreFT int // Full-time final score (e.g. 2)
+	AwayScoreFT int // Full-time final score (e.g. 1)
 }
 
+// getPhaseScores extracts the relevant score slice depending on the market's phase.
+// For example:
+// - "1ST_HALF_OVER_UNDER" uses HT scores.
+// - "2ND_HALF_MATCH_RESULT" computes the 2nd half delta: (FT - HT).
+// - Regular full-time markets use FT scores.
 func getPhaseScores(marketType string, score MatchScore) (int, int, int) {
 	if strings.HasPrefix(marketType, "1ST_HALF_") {
 		return score.HomeScoreHT, score.AwayScoreHT, score.HomeScoreHT + score.AwayScoreHT
@@ -27,12 +35,20 @@ func getPhaseScores(marketType string, score MatchScore) (int, int, int) {
 	return score.HomeScoreFT, score.AwayScoreFT, score.HomeScoreFT + score.AwayScoreFT
 }
 
+// stripPhasePrefix removes the temporal prefix to reuse standard full-time market math
+// for 1st/2nd half variations.
 func stripPhasePrefix(marketType string) string {
 	m := strings.TrimPrefix(marketType, "1ST_HALF_")
 	m = strings.TrimPrefix(m, "2ND_HALF_")
 	return m
 }
 
+// EvaluateSelection is the pure mathematical core of the betting platform.
+// Given a user's bet selection and the actual match score, it returns:
+// "WON", "LOST", "VOID", "HALF_WON", or "HALF_LOST".
+//
+// Note: This function computes pure mathematical truth.
+// The caller (live_evaluator.go) is responsible for applying live match failsafes.
 func EvaluateSelection(sel domain.BookingSelection, score MatchScore) string {
 	if strings.Contains(sel.MarketType, "_AND_") {
 		parts := strings.Split(sel.MarketType, "_AND_")

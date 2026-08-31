@@ -1,10 +1,16 @@
-// Command translate reads a SportyBet share-code JSON payload from disk
-// and prints the translated internal domain structures (matches + booking
-// selections) as pretty JSON.
+// Command translate is a local diagnostic CLI tool for developers.
+// It reads raw SportyBet JSON payloads dumped from the browser/scraper, runs them
+// through our internal translator, and outputs clean normalized matches and selections.
+//
+// Why this exists:
+// SportyBet's JSON format changes, contains weird nested keys, and has dozens of market variants.
+// Instead of debugging through API requests and database rows, developers can pipe raw JSON
+// files directly through this tool to see if our translator maps every market properly.
 //
 // Usage:
 //
 //	go run ./cmd/translate -in ai/sportybet_samples/codeShare.json
+//	go run ./cmd/translate -in ai/sportybet_samples/last_sample.json
 package main
 
 import (
@@ -13,9 +19,6 @@ import (
 	"fmt"
 	"os"
 
-	// TODO: fix these import paths to match your actual module — run
-	// `head -1 go.mod` in your project root to get the module name, then
-	// point these at wherever domain.go and the sportybet translator live.
 	"slipwise/internal/betting/domain"
 	"slipwise/internal/betting/provider/sportybet"
 )

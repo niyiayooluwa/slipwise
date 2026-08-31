@@ -32,14 +32,16 @@ type Handlers struct {
 	// Notifications *notificationshandler.NotificationsHandler
 }
 
-// NewRouter builds the full Echo router. trustedProxyCIDRs controls client-IP
-// resolution: empty → direct internet (use RemoteAddr); populated → read
-// X-Forwarded-For, trusting only the listed CIDR ranges as proxy hops. No
-// code change is needed when switching between deployment topologies — only
-// the TRUSTED_PROXY_CIDRS env var needs updating.
+// NewRouter builds the complete Echo HTTP application router.
+//
+// Middleware Pipeline:
+// 1. RequestID: Injects a unique X-Request-ID header on every response for tracing across log systems.
+// 2. RequestLogger: Structured JSON access logs with HTTP method, latency, and status code.
+// 3. Recover: Intercepts unhandled panics and returns clean 500 responses without crashing the binary.
+// 4. CORS: Cross-Origin Resource Sharing rules for mobile/web frontends.
+// 5. Proxy-Aware IP Extractor: Resolves true client IPs across Cloudflare / reverse proxies.
 func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string, trustedProxyCIDRs []string, cronSecret string) *echo.Echo {
 	e := echo.New()
-	//e.HideBanner = true
 	e.IPExtractor = buildIPExtractor(trustedProxyCIDRs)
 
 	e.Use(middleware.RequestID())
@@ -53,9 +55,10 @@ func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string, t
 		MaxAge:           300,
 	}))
 
+	// Interactive OpenAPI / Swagger UI documentation endpoint: GET /swagger/index.html
 	e.GET("/swagger/*", echo.WrapHandler(httpSwagger.WrapHandler))
 
-	// Health check — unauthenticated, used by load balancers and uptime monitors.
+	// Health check endpoint (Public) — Used by Railway/Docker uptime monitors and load balancers.
 	e.GET("/health", func(c *echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})

@@ -1,4 +1,5 @@
-// Package worker handles background tasks and external integrations like Cloudflare.
+// Package worker handles asynchronous background tasks, scheduled polling,
+// and third-party integrations (Cloudflare scraper proxy, FCM push notifications).
 package worker
 
 import (
@@ -16,12 +17,17 @@ type cachedResponse struct {
 	expiresAt time.Time
 }
 
+// In-Memory RAM Cache:
+// Prevents "Thundering Herd" API rate limits.
+// When 100 users preview or track the same viral betslip code within 60 seconds,
+// the server fetches it from SportyBet once, caches the raw JSON, and serves the rest instantly from RAM.
 var (
 	ticketCache sync.Map
 	cacheTTL    = 60 * time.Second
 )
 
-// CloudflareClient defines the interface for communicating with the Cloudflare worker.
+// CloudflareClient defines the transport interface for communicating with our Cloudflare Worker proxy.
+// We proxy SportyBet traffic through Cloudflare Workers to bypass geo-restrictions and basic IP blocks.
 type CloudflareClient interface {
 	FetchLiveMatches(ctx context.Context) ([]LiveMatch, error)
 	FetchTicketByCode(ctx context.Context, shareCode string) ([]byte, error)

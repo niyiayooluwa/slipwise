@@ -26,7 +26,13 @@ type Evaluator interface {
 	Evaluate(ctx context.Context, matchID uuid.UUID, providerID string, data []byte) error
 }
 
-// Poller runs in the background and polls for live matches.
+// Poller runs as a continuous background daemon that monitors active matches.
+//
+// Dual-Strategy Engine:
+// 1. Firehose Ingestion: Periodically fetches live matches currently broadcasting on SportyBet
+//    and updates match clocks / live scores.
+// 2. Sweeper Routine: Periodically identifies "stuck" matches (e.g. matches whose kickoff was >3 hours ago
+//    but were never marked ENDED due to temporary network blips) and forcibly resolves them.
 type Poller struct {
 	client    CloudflareClient
 	repo      Repository
@@ -34,7 +40,7 @@ type Poller struct {
 	interval  time.Duration
 }
 
-// NewPoller creates a new Poller.
+// NewPoller initializes a poller instance.
 func NewPoller(client CloudflareClient, repo Repository, evaluator Evaluator, interval time.Duration) *Poller {
 	return &Poller{
 		client:    client,

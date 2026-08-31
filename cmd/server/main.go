@@ -48,27 +48,41 @@ func main() {
 	// Structured logging: every log line from here on is a JSON
 	// object (level, message, and whatever key/value fields a call
 	// site adds), not a free-text string. This is what makes
-	// production logs queryable/filterable instead of grep-only.
+	// production logs queryable/filterable in Datadog/CloudWatch instead of grep-only.
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
+	// Step 1: Load environment configuration.
+	// If any required environment variable is missing, Load() halts startup immediately
+	// and gives us a clean, alphabetized list of what to fix in our .env file.
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config error: %v", err)
 	}
 
+	// Step 2: Establish the PostgreSQL connection pool.
+	// We use pgxpool instead of database/sql because pgx gives us native PostgreSQL binary protocol,
+	// superior performance, and direct support for pgtype (Numeric, UUID, etc.).
 	pool := mustConnectDB(cfg.DatabaseURL)
 	defer pool.Close()
 
+	// queries wraps our sqlc-generated type-safe database queries.
 	queries := db.New(pool)
 
+	// Step 3: Initialize foundational infrastructure services.
+	// JWT issuer handles signing access tokens (15-min TTL) and refresh token mechanics.
 	jwtIssuer := auth.NewJWTIssuer(cfg.JWTSecret)
+	// Brevo is our transactional email provider for OTPs and verification emails.
 	brevoMailer := mailer.NewBrevoMailer(cfg.BrevoAPIKey, cfg.BrevoSenderEmail)
 
+	// Step 4: Wire the Auth domain (Repository -> Service -> Handler).
+	// Strict Layered Architecture: Handlers know only Services; Services know Repositories & Domain models.
 	authRepo := repository.NewAuthRepository(queries)
 	authSvc := authservice.NewAuthService(authRepo, jwtIssuer, brevoMailer, cfg.GoogleClientID, cfg.FeedbackEmail)
 	authH := authhandler.NewAuthHandler(authSvc)
 
-	// Betting module
+	// Step 5: Wire the Betting domain.
+	// The CloudflareClient proxies requests through a Cloudflare Worker to avoid WAF / IP blocks
+	// while querying bookmaker endpoints.
 	cfClient := worker.NewCloudflareClient(cfg.CloudflareWorkerURL)
 	sportyProvider := sportybet.NewProvider(cfClient)
 
@@ -81,21 +95,27 @@ func main() {
 	)
 	bettingH := bettinghandler.NewBettingHandler(bettingSvc)
 
-	// Start daily orphan cleanup job
+	// Step 6: Spawn background workers.
+	// Background Worker 1: The Scavenger (Orphan Cleanup Job).
+	// Runs periodically in a background goroutine to clean up booking codes that were previewed
+	// or tracked but later orphaned/abandoned by all users.
 	cleanupJob := worker.NewCleanupJob(bettingSvc)
 	go cleanupJob.Start(context.Background())
 
-	// Initialize FCM
+	// Initialize Firebase Cloud Messaging (FCM) for push notifications (e.g. settlement alerts).
 	fcmSvc, err := notification.NewFCMService(context.Background(), cfg.FirebaseCredentialsJSON)
 	if err != nil {
 		slog.Error("fcm initialization failed (invalid FIREBASE_CREDENTIALS_JSON)", "error", err)
 		os.Exit(1)
 	}
 
-	// Start live match poller
+	// Background Worker 2: The Settlement Poller & Live Evaluator.
+	// Periodically queries the Cloudflare live firehose, decodes live match scores,
+	// updates database match states, and triggers push notifications when tickets win or lose.
 	poller := worker.NewPoller(cfClient, bettingRepo, worker.NewLiveEvaluator(bettingRepo, fcmSvc), 60*time.Second)
 	go poller.Start(context.Background())
 
+	// Step 7: Bundle handlers and construct the Echo router.
 	// As each new domain (realtime, notifications, betting...) gets its
 	// own repo/service/handler, wire it here and add it to Handlers below.
 	// Route mounting itself never happens in this file — see
@@ -108,6 +128,7 @@ func main() {
 
 	r := httpserver.NewRouter(handlers, jwtIssuer, cfg.AllowedOrigins, cfg.TrustedProxyCIDRs, cfg.CronSecret)
 
+	// Step 8: Configure and start the standard library HTTP Server.
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: r,
@@ -124,17 +145,18 @@ func main() {
 		}
 	}()
 
+	// Step 9: Graceful Shutdown orchestration.
 	// Block until the OS asks us to stop — Ctrl+C locally (SIGINT), or
 	// SIGTERM from whatever's managing the process in staging/prod
-	// (systemd, Docker, a platform's deploy tooling). Without this,
-	// the old log.Fatal(ListenAndServe(...)) approach meant every
-	// deploy/restart just killed in-flight requests instantly.
+	// (systemd, Docker, Kubernetes, Railway). Without this,
+	// every deploy/restart would abruptly sever database transactions and in-flight HTTP requests.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
 
 	slog.Info("shutdown signal received, draining in-flight requests")
 
+	// Allow up to shutdownTimeout (10s) for active requests to finish before hard exit.
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 

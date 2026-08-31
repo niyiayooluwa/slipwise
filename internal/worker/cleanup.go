@@ -8,7 +8,10 @@ import (
 	"slipwise/internal/betting/service"
 )
 
-// CleanupJob runs daily to clean up orphaned booking codes.
+// CleanupJob is the platform's scavenger routine.
+// When users preview codes or delete tickets, underlying booking codes and matches
+// might become orphaned (tracked by 0 users). Once a day, this job sweeps and purges
+// orphaned data to keep database storage lean and clean.
 type CleanupJob struct {
 	svc *service.BettingService
 }

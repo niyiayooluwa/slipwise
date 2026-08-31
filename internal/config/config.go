@@ -1,10 +1,12 @@
-// Package config centralizes all of the app's startup configuration
-// in one place. Before this existed, main.go called mustGetEnv
-// scattered across itself — which meant a missing env var only
-// surfaced whenever that particular line happened to run, sometimes
-// deep into startup after a DB connection was already open. Load
-// validates everything up front, once, so the app either starts
-// clean or fails immediately with a full list of what's missing.
+// Package config centralizes all of the application's startup configuration.
+//
+// Architectural Philosophy:
+// Rather than scattering `os.Getenv(...)` calls across handlers, services, and workers
+// (which causes silent bugs when an env var is missing 3 layers deep at runtime),
+// we parse and validate EVERYTHING up front during application boot.
+//
+// If a variable is missing, the application halts immediately with a clear, sorted list
+// of all missing variables so the developer doesn't have to restart 10 times to fix 10 errors.
 package config
 
 import (
@@ -17,10 +19,9 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Config holds every environment-derived value the app needs at
-// startup. Add a field here (and to Load's required-vars check, if
-// it's not optional) rather than reading os.Getenv directly anywhere
-// else in the codebase — that's the whole point of centralizing this.
+// Config holds every environment-derived value the app needs at startup.
+// Rule of Thumb: If a component needs a configuration value, add it here and pass it down.
+// Never call `os.Getenv` inside business logic packages.
 type Config struct {
 	// DatabaseURL is the Postgres connection string, e.g.
 	// postgres://user:pass@host:5432/dbname?sslmode=disable

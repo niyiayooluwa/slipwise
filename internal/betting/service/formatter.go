@@ -4,9 +4,16 @@ import (
 	"strings"
 )
 
-// FormatDisplaySelection generates a user-friendly string for the frontend UI.
+// FormatDisplaySelection transforms technical market enums and codes into clean,
+// human-readable labels for the mobile app UI.
+//
+// Examples:
+// - Market: "MATCH_RESULT", Selection: "1", Home: "Arsenal", Away: "Chelsea" -> "Arsenal to Win"
+// - Market: "DOUBLE_CHANCE", Selection: "1X", Home: "Arsenal", Away: "Chelsea" -> "Arsenal or Draw"
+// - Market: "OVER_UNDER", Spec: "total=2.5", Selection: "OVER" -> "Over 2.5 Goals"
+// - Combo Market: "MATCH_RESULT_AND_OVER_UNDER" -> "Arsenal to Win & Over 2.5 Goals"
 func FormatDisplaySelection(marketType, marketSpec, selection, homeTeam, awayTeam string) string {
-	// Split combos if they exist (e.g., MATCH_RESULT_AND_OVER_UNDER)
+	// Split compound markets if they exist (e.g., MATCH_RESULT_AND_OVER_UNDER)
 	if strings.Contains(marketType, "_AND_") && strings.Contains(selection, "_AND_") {
 		marketParts := strings.Split(marketType, "_AND_")
 		selParts := strings.Split(selection, "_AND_")

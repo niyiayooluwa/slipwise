@@ -17,22 +17,20 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// ctxKey is an unexported type for context keys, per the standard Go
-// idiom — prevents collisions with keys set by other packages using
-// plain strings.
+// ctxKey is a private type for context keys to avoid collisions with other packages.
 type ctxKey string
 
-// UserIDKey is the context key RequireAuth stores the authenticated
-// user's ID under. Downstream handlers read it via
-// r.Context().Value(auth.UserIDKey).(uuid.UUID).
+// UserIDKey is the context key under which the authenticated user's UUID is stored.
+// Downstream handlers access this via `c.Get(string(auth.UserIDKey)).(uuid.UUID)`.
 const UserIDKey ctxKey = "user_id"
 
-// RequireAuth returns middleware that validates the Bearer JWT on
-// every request and injects the resulting user ID into the request
-// context. It deliberately does not check roles or permissions —
-// that's a separate middleware layered on top for routes that need
-// it (e.g. admin-only endpoints), so a plain authenticated route
-// doesn't pay for a permissions lookup it doesn't need.
+// RequireAuth returns an Echo middleware that enforces a valid Bearer JWT on protected routes.
+//
+// Workflow:
+// 1. Reads the `Authorization: Bearer <token>` header.
+// 2. Verifies the signature, expiry, and HMAC algorithm via `issuer.Verify`.
+// 3. Extracts the user's `uuid.UUID` from the JWT claims and saves it to Echo's per-request context (`c.Set(...)`).
+// 4. Calls the next handler in the chain.
 func RequireAuth(issuer *JWTIssuer) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
@@ -47,7 +45,7 @@ func RequireAuth(issuer *JWTIssuer) echo.MiddlewareFunc {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid or expired token"})
 			}
 
-			// Store user ID in Echo's per-request store (faster than context.WithValue)
+			// Store user ID in Echo's per-request store (faster than standard context.WithValue allocations)
 			c.Set(string(UserIDKey), claims.UserID)
 			return next(c)
 		}

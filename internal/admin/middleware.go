@@ -1,4 +1,4 @@
-// Package admin provides administrative HTTP middleware and handlers.
+// Package admin provides administrative HTTP middleware and role verification guards.
 package admin
 
 import (
@@ -12,14 +12,24 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-// DB represents the query interface needed by the admin middleware.
+// DB represents the minimal query interface needed by the admin middleware.
+// Interface Segregation Principle: By defining only `GetUserByID` here, unit testing
+// this middleware with a mock requires implementing only one method.
 type DB interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (generated.User, error)
 }
 
-// RequireAdmin creates a middleware that ensures the authenticated user
-// has the IsAdmin flag set to true in the database.
-// It MUST be placed after auth.RequireAuth in the router chain.
+// RequireAdmin creates an Echo middleware that guarantees the authenticated caller
+// has `is_admin = true` in the database.
+//
+// Security Design Note:
+// Why query the database on every admin request instead of putting "is_admin: true" in the JWT claims?
+// If an admin user is revoked/demoted or their account is compromised, a JWT-based role claim
+// would remain valid until the token expires (15 minutes). Checking PostgreSQL dynamically ensures
+// immediate, real-time revocation of administrative power.
+//
+// Prerequisite:
+// This middleware MUST be chained AFTER `auth.RequireAuth(...)`, which injects the `user_id` into context.
 func RequireAdmin(queries DB) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {

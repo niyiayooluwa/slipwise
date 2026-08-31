@@ -1,3 +1,8 @@
+// Package auth implements foundational security primitives:
+// - Stateless HS256 JWT access tokens (15-min lifetime)
+// - Cryptographically secure refresh tokens with SHA-256 hash lookups
+// - Salted bcrypt password & OTP verification
+// - Bearer token middleware with Echo request store injection
 package auth
 
 import (
@@ -8,42 +13,40 @@ import (
 	"github.com/google/uuid"
 )
 
-// AccessTokenTTL is the lifetime of an issued access token. It's kept short
-// (15 minutes) because access tokens are not revocable. A compromised
-// token is only ever valid for this window. Long-lived sessions are handled
-// via refresh tokens instead (see tokens.go).
+// AccessTokenTTL is the lifetime of an issued access token.
+//
+// Why 15 minutes?
+// JWTs are stateless: once signed, they CANNOT be revoked until they expire without introducing
+// a centralized token-blocklist in Redis/DB (which defeats the performance benefit of stateless JWTs).
+// Keeping the TTL short ensures that if an access token is intercepted, the attacker's window of
+// opportunity is tiny. For long sessions, the client silently exchanges its 30-day Refresh Token.
 const AccessTokenTTL = 15 * time.Minute
 
-// ErrInvalidToken is returned by Verify when a token is malformed, expired,
-// or signed with an unexpected algorithm. Callers should treat this as a
-// 401, not a 500 — it does not distinguish between "expired" and "forged"
-// on purpose, to avoid leaking which case applies to an attacker.
+// ErrInvalidToken is returned when a token is malformed, expired, forged, or has an invalid signature.
+// Security Note: We intentionally collapse all validation errors (expired, bad signature, wrong algo)
+// into a single generic 401 error. This prevents timing attacks and information leakage where an attacker
+// probes whether a stolen token is expired vs forged.
 var ErrInvalidToken = errors.New("invalid or expired token")
 
-// Claims is the JWT payload embedded in every access token issued by
-// JWTIssuer. It carries the authenticated user's ID alongside the standard
-// registered claims (exp, iat).
+// Claims is the custom payload embedded inside every issued access token.
+// It carries the authenticated user's UUID alongside standard RFC 7519 registered claims (exp, iat).
 type Claims struct {
 	UserID uuid.UUID `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
-// JWTIssuer issues and verifies HS256-signed access tokens using a shared
-// secret. It holds no state beyond the signing key, so a single instance
-// is safe to reuse (and share) across requests.
+// JWTIssuer is the stateless token mint. It signs and verifies access tokens using HS256 HMAC.
 type JWTIssuer struct {
 	secret []byte
 }
 
-// NewJWTIssuer creates a JWTIssuer that signs and verifies tokens using secret.
-// secret should be loaded from config/env, never hardcoded — anyone with it
-// can mint valid tokens for any user ID.
+// NewJWTIssuer creates an issuer with the provided secret.
+// Always load the secret from environment variables — never commit secrets to Git!
 func NewJWTIssuer(secret string) *JWTIssuer {
 	return &JWTIssuer{secret: []byte(secret)}
 }
 
-// Issue creates a signed access token for userID, valid for AccessTokenTTL
-// from now.
+// Issue generates a cryptographically signed HS256 JWT for the given user ID.
 func (j *JWTIssuer) Issue(userID uuid.UUID) (string, error) {
 	claims := Claims{
 		UserID: userID,
@@ -56,15 +59,16 @@ func (j *JWTIssuer) Issue(userID uuid.UUID) (string, error) {
 	return token.SignedString(j.secret)
 }
 
-// Verify parses and validates tokenStr, returning its Claims if the
-// signature and expiry check out. It rejects any token not signed with
-// HMAC (SigningMethodHMAC), which guards against algorithm-confusion
-// attacks where a forged token claims a different signing method (e.g. "none").
-// Any failure — bad signature, expired, wrong method — collapses to
-// ErrInvalidToken.
+// Verify decodes and validates a raw Bearer token string.
+//
+// Critical Security Defense (Algorithm Confusion):
+// We strictly enforce `t.Method.(*jwt.SigningMethodHMAC)`.
+// Without this check, a malicious actor could forge a token with header `{"alg": "none"}` or `"RS256"`
+// using our public key as the HMAC secret, bypassing authentication completely.
 func (j *JWTIssuer) Verify(tokenStr string) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
+		// Enforce that the token was signed with HMAC (HS256), rejecting "none" or asymmetric algorithms
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
 		}

@@ -60,6 +60,10 @@ type Config struct {
 	FeedbackEmail string
 	// FirebaseCredentialsJSON is the raw JSON key for Firebase Admin SDK.
 	FirebaseCredentialsJSON string
+	// CronSecret is an optional shared secret to protect /internal/cron endpoints.
+	// If set, requests must include the header: X-Cron-Secret: <value>.
+	// If unset, the cron endpoint is open (not recommended for production).
+	CronSecret string
 }
 
 // Load reads .env (if present) into the process environment, then
@@ -83,6 +87,7 @@ func Load() (*Config, error) {
 		CloudflareWorkerURL:     os.Getenv("CLOUDFLARE_WORKER_URL"),
 		FeedbackEmail:           os.Getenv("FEEDBACK_EMAIL"),
 		FirebaseCredentialsJSON: os.Getenv("FIREBASE_CREDENTIALS_JSON"),
+		CronSecret:              os.Getenv("CRON_SECRET"), // Optional — empty = open endpoint
 	}
 
 	if cfg.Port == "" {

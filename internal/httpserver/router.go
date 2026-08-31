@@ -37,7 +37,7 @@ type Handlers struct {
 // X-Forwarded-For, trusting only the listed CIDR ranges as proxy hops. No
 // code change is needed when switching between deployment topologies — only
 // the TRUSTED_PROXY_CIDRS env var needs updating.
-func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string, trustedProxyCIDRs []string) *echo.Echo {
+func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string, trustedProxyCIDRs []string, cronSecret string) *echo.Echo {
 	e := echo.New()
 	//e.HideBanner = true
 	e.IPExtractor = buildIPExtractor(trustedProxyCIDRs)
@@ -62,6 +62,9 @@ func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string, t
 
 	// Cron endpoint to manually trigger the settlement poller (useful for serverless setups).
 	e.POST("/internal/cron/settle", func(c *echo.Context) error {
+		if cronSecret != "" && c.Request().Header.Get("X-Cron-Secret") != cronSecret {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "forbidden"})
+		}
 		if h.Poller != nil {
 			h.Poller.RunOnce(c.Request().Context())
 		}

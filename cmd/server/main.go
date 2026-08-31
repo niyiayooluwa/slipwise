@@ -106,7 +106,7 @@ func main() {
 		Poller:  poller,
 	}
 
-	r := httpserver.NewRouter(handlers, jwtIssuer, cfg.AllowedOrigins, cfg.TrustedProxyCIDRs)
+	r := httpserver.NewRouter(handlers, jwtIssuer, cfg.AllowedOrigins, cfg.TrustedProxyCIDRs, cfg.CronSecret)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,

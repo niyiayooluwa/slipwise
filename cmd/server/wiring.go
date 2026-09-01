@@ -19,6 +19,7 @@ import (
 func mustConnectDB(databaseURL string) *pgxpool.Pool {
 	pool, err := pgxpool.New(context.Background(), databaseURL)
 	if err != nil {
+		// Fails loudly if connection to database cannot be established
 		log.Fatalf("unable to create connection pool: %v", err)
 	}
 

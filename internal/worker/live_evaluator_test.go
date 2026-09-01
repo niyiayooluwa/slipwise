@@ -70,7 +70,7 @@ func TestLiveEvaluator_NotificationScenarios(t *testing.T) {
 				BookingCodeID: uuid.New(),
 				FcmToken:      &token,
 			},
-			expectedTitle: "Ticket Won! \U0001f4b8\U0001f680",
+			expectedTitle: "You won! 🎉",
 		},
 		{
 			name: "Ticket Lost",
@@ -81,7 +81,7 @@ func TestLiveEvaluator_NotificationScenarios(t *testing.T) {
 				BookingCodeID: uuid.New(),
 				FcmToken:      &token,
 			},
-			expectedTitle: "Ticket Lost \u274c",
+			expectedTitle: "Better luck next time 😔",
 		},
 
 	}

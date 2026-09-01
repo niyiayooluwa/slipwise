@@ -112,7 +112,11 @@ SET home_score = $1, away_score = $2, status = $3, live_time = $4
 WHERE id = $5;
 
 -- name: GetStuckMatches :many
-SELECT id, provider_id 
+-- Returns matches that started 3+ hours ago but are still showing as LIVE/NOT_STARTED.
+-- These are matches that disappeared from the SportyBet live firehose (i.e., they ended)
+-- but our evaluator never received an ENDED signal for them.
+-- We include the last known scores so the sweeper can force-settle without hitting Cloudflare.
+SELECT id, provider_id, home_score, away_score
 FROM matches 
 WHERE status IN ('NOT_STARTED', 'LIVE')
   AND start_time < NOW() - INTERVAL '3 hours'

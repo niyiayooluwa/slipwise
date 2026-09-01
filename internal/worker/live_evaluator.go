@@ -34,9 +34,9 @@ func NewLiveEvaluator(repo EvaluatorRepo, fcm notification.Service) Evaluator {
 
 func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, providerID string, data []byte) error {
 	var event struct {
-		SetScore    string `json:"setScore"`
-		MatchStatus string `json:"matchStatus"`
-		MatchTime   string `json:"matchTime"`
+		SetScore      string `json:"setScore"`
+		MatchStatus   string `json:"matchStatus"`
+		PlayedSeconds string `json:"playedSeconds"` // Bug fix: SportyBet uses "playedSeconds", NOT "matchTime"
 	}
 	if err := json.Unmarshal(data, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal event data: %w", err)
@@ -60,7 +60,7 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 		HomeScore: int32(home),
 		AwayScore: int32(away),
 		Status:    dbMatchStatus,
-		LiveTime:  &event.MatchTime,
+		LiveTime:  &event.PlayedSeconds,
 		ID:        matchID,
 	})
 	if err != nil {
@@ -151,11 +151,11 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 		var title, body string
 
 		if res.TicketStatus == "WON" {
-			title = "Ticket Won! 💸🚀"
-			body = fmt.Sprintf("Your ticket %s just hit! All %d legs are green.", res.BookingCode, res.TotalLegs)
+			title = "You won! 🎉"
+			body = fmt.Sprintf("All %d legs landed on ticket %s. Cash out and celebrate! 💸", res.TotalLegs, res.BookingCode)
 		} else if res.TicketStatus == "LOST" {
-			title = "Ticket Lost ❌"
-			body = fmt.Sprintf("Your ticket %s was busted.", res.BookingCode)
+			title = "Better luck next time 😔"
+			body = fmt.Sprintf("Ticket %s didn't make it this time. Review it and come back stronger.", res.BookingCode)
 		}
 		// "Sweat Alert" and "Leg Secured" notifications are temporarily disabled
 		// until Fast Settlement is re-introduced in a future phase.

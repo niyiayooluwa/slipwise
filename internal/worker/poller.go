@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -98,17 +99,24 @@ func (p *Poller) RunOnce(ctx context.Context) {
 		}
 	}
 
-	// 4. Sweeper: Fetch up to 5 stuck matches (older than 3 hours) and force check them.
+	// Sweeper: Force-settle matches that disappeared from the live feed without being marked ENDED.
+	// These are matches that kicked off 3+ hours ago but are still NOT_STARTED/LIVE in our DB.
+	// Since SportyBet drops ended matches from the /live firehose entirely, we never get an
+	// explicit "ENDED" signal for them. So we construct a synthetic payload using the last
+	// known score and force the evaluator to settle all pending selections.
 	stuckMatches, err := p.repo.GetStuckMatches(ctx)
 	if err == nil && len(stuckMatches) > 0 {
 		for _, sm := range stuckMatches {
-			data, err := p.client.FetchTicketByCode(ctx, sm.ProviderID)
-			if err != nil {
-				log.Printf("Sweeper failed to fetch stuck match %s: %v", sm.ProviderID, err)
-				continue
-			}
-			if err := p.evaluator.Evaluate(ctx, sm.ID, sm.ProviderID, data); err != nil {
-				log.Printf("Sweeper failed to evaluate match %s: %v", sm.ProviderID, err)
+			// Build a minimal synthetic SportyBet event payload using the match's last known score.
+			// matchStatus "ended" triggers isEnded=true inside the evaluator.
+			syntheticPayload := fmt.Sprintf(
+				`{"setScore":"%d:%d","matchStatus":"ended","playedSeconds":"90:00"}`,
+				sm.HomeScore, sm.AwayScore,
+			)
+			if err := p.evaluator.Evaluate(ctx, sm.ID, sm.ProviderID, []byte(syntheticPayload)); err != nil {
+				log.Printf("Sweeper failed to force-settle stuck match %s: %v", sm.ProviderID, err)
+			} else {
+				log.Printf("Sweeper force-settled stuck match %s (%d:%d)", sm.ProviderID, sm.HomeScore, sm.AwayScore)
 			}
 		}
 	}

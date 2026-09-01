@@ -24,7 +24,7 @@ import (
 
 	"slipwise/internal/auth"
 	authhandler "slipwise/internal/auth/handler"
-	"slipwise/internal/auth/repository"
+	authRepo "slipwise/internal/auth/repository"
 	authservice "slipwise/internal/auth/service"
 	bettinghandler "slipwise/internal/betting/handler"
 	"slipwise/internal/betting/provider/sportybet"
@@ -76,7 +76,7 @@ func main() {
 
 	// Step 4: Wire the Auth domain (Repository -> Service -> Handler).
 	// Strict Layered Architecture: Handlers know only Services; Services know Repositories & Domain models.
-	authRepo := repository.NewAuthRepository(queries)
+	authRepo := authRepo.NewAuthRepository(queries)
 	authSvc := authservice.NewAuthService(authRepo, jwtIssuer, brevoMailer, cfg.GoogleClientID, cfg.FeedbackEmail)
 	authH := authhandler.NewAuthHandler(authSvc)
 

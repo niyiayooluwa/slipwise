@@ -79,7 +79,7 @@ func (q *Queries) CreateBookingCode(ctx context.Context, arg CreateBookingCodePa
 
 const createBookingSelection = `-- name: CreateBookingSelection :one
 INSERT INTO booking_selections (booking_code_id, match_id, market_type, market_spec, selection, odds, status) 
-VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, booking_code_id, match_id, market_type, selection, status, market_spec, odds
+VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, booking_code_id, match_id, market_type, selection, status, market_spec, odds, notified_early_win, notified_ht
 `
 
 type CreateBookingSelectionParams struct {
@@ -112,6 +112,8 @@ func (q *Queries) CreateBookingSelection(ctx context.Context, arg CreateBookingS
 		&i.Status,
 		&i.MarketSpec,
 		&i.Odds,
+		&i.NotifiedEarlyWin,
+		&i.NotifiedHt,
 	)
 	return i, err
 }
@@ -236,6 +238,39 @@ func (q *Queries) GetActiveBucketsByProvider(ctx context.Context, provider strin
 	return items, nil
 }
 
+const getMatchByID = `-- name: GetMatchByID :one
+SELECT id, home_team, away_team, start_time, status, home_score, away_score, live_time
+FROM matches
+WHERE id = $1
+`
+
+type GetMatchByIDRow struct {
+	ID        uuid.UUID          `json:"id"`
+	HomeTeam  string             `json:"home_team"`
+	AwayTeam  string             `json:"away_team"`
+	StartTime pgtype.Timestamptz `json:"start_time"`
+	Status    string             `json:"status"`
+	HomeScore int32              `json:"home_score"`
+	AwayScore int32              `json:"away_score"`
+	LiveTime  *string            `json:"live_time"`
+}
+
+func (q *Queries) GetMatchByID(ctx context.Context, id uuid.UUID) (GetMatchByIDRow, error) {
+	row := q.db.QueryRow(ctx, getMatchByID, id)
+	var i GetMatchByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.HomeTeam,
+		&i.AwayTeam,
+		&i.StartTime,
+		&i.Status,
+		&i.HomeScore,
+		&i.AwayScore,
+		&i.LiveTime,
+	)
+	return i, err
+}
+
 const getPendingBucketsForMatch = `-- name: GetPendingBucketsForMatch :many
 SELECT DISTINCT market_type, market_spec, selection 
 FROM booking_selections 
@@ -258,6 +293,66 @@ func (q *Queries) GetPendingBucketsForMatch(ctx context.Context, matchID uuid.UU
 	for rows.Next() {
 		var i GetPendingBucketsForMatchRow
 		if err := rows.Scan(&i.MarketType, &i.MarketSpec, &i.Selection); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getPendingSelectionsForMatch = `-- name: GetPendingSelectionsForMatch :many
+SELECT 
+    bs.id,
+    bs.booking_code_id,
+    bs.market_type,
+    bs.market_spec,
+    bs.selection,
+    bs.notified_early_win,
+    bs.notified_ht,
+    bc.code AS booking_code,
+    ud.fcm_token
+FROM booking_selections bs
+JOIN booking_codes bc ON bs.booking_code_id = bc.id
+JOIN user_tickets ut ON bc.id = ut.booking_code_id
+LEFT JOIN user_devices ud ON ut.user_id = ud.user_id
+WHERE bs.match_id = $1 AND bs.status = 'PENDING'
+`
+
+type GetPendingSelectionsForMatchRow struct {
+	ID               uuid.UUID `json:"id"`
+	BookingCodeID    uuid.UUID `json:"booking_code_id"`
+	MarketType       string    `json:"market_type"`
+	MarketSpec       *string   `json:"market_spec"`
+	Selection        string    `json:"selection"`
+	NotifiedEarlyWin bool      `json:"notified_early_win"`
+	NotifiedHt       bool      `json:"notified_ht"`
+	BookingCode      string    `json:"booking_code"`
+	FcmToken         *string   `json:"fcm_token"`
+}
+
+func (q *Queries) GetPendingSelectionsForMatch(ctx context.Context, matchID uuid.UUID) ([]GetPendingSelectionsForMatchRow, error) {
+	rows, err := q.db.Query(ctx, getPendingSelectionsForMatch, matchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetPendingSelectionsForMatchRow{}
+	for rows.Next() {
+		var i GetPendingSelectionsForMatchRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BookingCodeID,
+			&i.MarketType,
+			&i.MarketSpec,
+			&i.Selection,
+			&i.NotifiedEarlyWin,
+			&i.NotifiedHt,
+			&i.BookingCode,
+			&i.FcmToken,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -462,6 +557,38 @@ func (q *Queries) GetUserHistory(ctx context.Context, arg GetUserHistoryParams) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const setEarlyWinNotified = `-- name: SetEarlyWinNotified :exec
+UPDATE booking_selections
+SET notified_early_win = $2
+WHERE id = $1
+`
+
+type SetEarlyWinNotifiedParams struct {
+	ID               uuid.UUID `json:"id"`
+	NotifiedEarlyWin bool      `json:"notified_early_win"`
+}
+
+func (q *Queries) SetEarlyWinNotified(ctx context.Context, arg SetEarlyWinNotifiedParams) error {
+	_, err := q.db.Exec(ctx, setEarlyWinNotified, arg.ID, arg.NotifiedEarlyWin)
+	return err
+}
+
+const setHTNotified = `-- name: SetHTNotified :exec
+UPDATE booking_selections
+SET notified_ht = $2
+WHERE id = $1
+`
+
+type SetHTNotifiedParams struct {
+	ID         uuid.UUID `json:"id"`
+	NotifiedHt bool      `json:"notified_ht"`
+}
+
+func (q *Queries) SetHTNotified(ctx context.Context, arg SetHTNotifiedParams) error {
+	_, err := q.db.Exec(ctx, setHTNotified, arg.ID, arg.NotifiedHt)
+	return err
 }
 
 const updateMatchState = `-- name: UpdateMatchState :exec

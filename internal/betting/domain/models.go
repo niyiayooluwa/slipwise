@@ -14,7 +14,7 @@ type Match struct {
 	HomeTeam        string
 	AwayTeam        string
 	// StartTime is Unix timestamp in milliseconds when the match kicks off.
-	StartTime       int64
+	StartTime int64
 }
 
 // BookingSelection represents a single betting pick/leg on a ticket.
@@ -23,12 +23,12 @@ type BookingSelection struct {
 	Provider        string
 	ExternalMatchID string
 	// MarketType is our universal enum string (e.g. "MATCH_RESULT", "OVER_UNDER", "BTTS").
-	MarketType      string
+	MarketType string
 	// MarketSpec stores additional market modifiers (e.g. "2.5" for Over/Under, "+1" for Handicap).
-	MarketSpec      string
+	MarketSpec string
 	// Selection is the normalized pick (e.g. "1", "X", "2", "OVER", "UNDER", "YES", "NO").
-	Selection       string
-	Odds            float64
+	Selection string
+	Odds      float64
 	// Status tracks settlement ("PENDING", "WON", "LOST", "VOID").
-	Status          string
+	Status string
 }

@@ -8,7 +8,7 @@ import (
 
 // SlipwiseTicket represents a full accumulator ticket saved by a user.
 type SlipwiseTicket struct {
-	UserID      uuid.UUID
+	UserID uuid.UUID
 	// Stake is a pointer so it can be NULL.
 	// Why? If a user is tracking a ticket just to monitor their friend's picks (social tracking),
 	// they haven't risked money, so stake=nil. If stake is set, it computes into personal ROI/profit stats.

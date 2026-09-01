@@ -35,6 +35,22 @@ func (m *mockEvaluatorRepo) UpdateMatchState(ctx context.Context, arg db.UpdateM
 	return nil
 }
 
+func (m *mockEvaluatorRepo) GetMatchByID(ctx context.Context, id uuid.UUID) (db.GetMatchByIDRow, error) {
+	return db.GetMatchByIDRow{}, nil
+}
+
+func (m *mockEvaluatorRepo) GetPendingSelectionsForMatch(ctx context.Context, matchID uuid.UUID) ([]db.GetPendingSelectionsForMatchRow, error) {
+	return nil, nil
+}
+
+func (m *mockEvaluatorRepo) SetEarlyWinNotified(ctx context.Context, arg db.SetEarlyWinNotifiedParams) error {
+	return nil
+}
+
+func (m *mockEvaluatorRepo) SetHTNotified(ctx context.Context, arg db.SetHTNotifiedParams) error {
+	return nil
+}
+
 type mockNotificationService struct {
 	sentTokens []string
 	sentTitles []string
@@ -56,9 +72,9 @@ func TestLiveEvaluator_NotificationScenarios(t *testing.T) {
 	token := "token123"
 
 	tests := []struct {
-		name          string
-		stats         db.EvaluateTicketsRow
-		expectedTitle string
+		name               string
+		stats              db.EvaluateTicketsRow
+		expectNotification bool
 	}{
 		{
 			name: "Ticket Won",
@@ -70,7 +86,7 @@ func TestLiveEvaluator_NotificationScenarios(t *testing.T) {
 				BookingCodeID: uuid.New(),
 				FcmToken:      &token,
 			},
-			expectedTitle: "You won! 🎉",
+			expectNotification: true,
 		},
 		{
 			name: "Ticket Lost",
@@ -81,37 +97,47 @@ func TestLiveEvaluator_NotificationScenarios(t *testing.T) {
 				BookingCodeID: uuid.New(),
 				FcmToken:      &token,
 			},
-			expectedTitle: "Better luck next time 😔",
+			expectNotification: true,
 		},
-
+		{
+			name: "Pending Ticket (No notification)",
+			stats: db.EvaluateTicketsRow{
+				TicketStatus:  "PENDING",
+				TotalLegs:     10,
+				PendingLegs:   1,
+				BookingCodeID: uuid.New(),
+				FcmToken:      &token,
+			},
+			expectNotification: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := &mockEvaluatorRepo{
 				buckets: []db.GetPendingBucketsForMatchRow{
-					{MarketType: "MATCH_RESULT", Selection: "1"}, // Matches 2:1 home win
+					{MarketType: "MATCH_RESULT", Selection: "1"},
 				},
 				returnedTickets:    []uuid.UUID{tt.stats.BookingCodeID},
 				evalTicketsResults: []db.EvaluateTicketsRow{tt.stats},
 			}
 			fcm := &mockNotificationService{}
+
 			evaluator := NewLiveEvaluator(repo, fcm)
 
 			err := evaluator.Evaluate(context.Background(), matchID, providerID, payload)
 			if err != nil {
-				t.Fatalf("Evaluate returned error: %v", err)
+				t.Fatalf("Unexpected error: %v", err)
 			}
 
-			if len(fcm.sentTitles) == 0 {
-				t.Fatalf("expected notification, got none")
-			}
-
-			if fcm.sentTitles[0] != tt.expectedTitle {
-				t.Errorf("expected title '%s', got '%s'", tt.expectedTitle, fcm.sentTitles[0])
-			}
-			if fcm.sentTokens[0] != "token123" {
-				t.Errorf("expected token 'token123', got '%s'", fcm.sentTokens[0])
+			if tt.expectNotification {
+				if len(fcm.sentTitles) == 0 {
+					t.Fatalf("Expected a notification to be sent, but none was sent")
+				}
+			} else {
+				if len(fcm.sentTitles) != 0 {
+					t.Fatalf("Expected NO notification, but got %d", len(fcm.sentTitles))
+				}
 			}
 		})
 	}

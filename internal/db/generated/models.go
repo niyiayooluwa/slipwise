@@ -22,14 +22,16 @@ type BookingCode struct {
 }
 
 type BookingSelection struct {
-	ID            uuid.UUID      `json:"id"`
-	BookingCodeID uuid.UUID      `json:"booking_code_id"`
-	MatchID       uuid.UUID      `json:"match_id"`
-	MarketType    string         `json:"market_type"`
-	Selection     string         `json:"selection"`
-	Status        string         `json:"status"`
-	MarketSpec    *string        `json:"market_spec"`
-	Odds          pgtype.Numeric `json:"odds"`
+	ID               uuid.UUID      `json:"id"`
+	BookingCodeID    uuid.UUID      `json:"booking_code_id"`
+	MatchID          uuid.UUID      `json:"match_id"`
+	MarketType       string         `json:"market_type"`
+	Selection        string         `json:"selection"`
+	Status           string         `json:"status"`
+	MarketSpec       *string        `json:"market_spec"`
+	Odds             pgtype.Numeric `json:"odds"`
+	NotifiedEarlyWin bool           `json:"notified_early_win"`
+	NotifiedHt       bool           `json:"notified_ht"`
 }
 
 type Match struct {
@@ -95,13 +97,16 @@ type UserDevice struct {
 }
 
 type UserStat struct {
-	UserID         uuid.UUID      `json:"user_id"`
-	TotalTickets   int32          `json:"total_tickets"`
-	WonTickets     int32          `json:"won_tickets"`
-	LostTickets    int32          `json:"lost_tickets"`
-	PendingTickets int32          `json:"pending_tickets"`
-	TotalStaked    pgtype.Numeric `json:"total_staked"`
-	TotalReturns   pgtype.Numeric `json:"total_returns"`
+	UserID           uuid.UUID      `json:"user_id"`
+	TotalTickets     int32          `json:"total_tickets"`
+	WonTickets       int32          `json:"won_tickets"`
+	LostTickets      int32          `json:"lost_tickets"`
+	PendingTickets   int32          `json:"pending_tickets"`
+	TotalStaked      pgtype.Numeric `json:"total_staked"`
+	TotalReturns     pgtype.Numeric `json:"total_returns"`
+	CurrentWinStreak int32          `json:"current_win_streak"`
+	LongestWinStreak int32          `json:"longest_win_streak"`
+	TotalPoints      pgtype.Numeric `json:"total_points"`
 }
 
 type UserTicket struct {

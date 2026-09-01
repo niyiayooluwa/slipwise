@@ -21,6 +21,10 @@ type EvaluatorRepo interface {
 	UpdateSelectionStatus(ctx context.Context, arg db.UpdateSelectionStatusParams) ([]uuid.UUID, error)
 	EvaluateTickets(ctx context.Context, bookingCodeIds []uuid.UUID) ([]db.EvaluateTicketsRow, error)
 	UpdateMatchState(ctx context.Context, arg db.UpdateMatchStateParams) error
+	GetMatchByID(ctx context.Context, id uuid.UUID) (db.GetMatchByIDRow, error)
+	GetPendingSelectionsForMatch(ctx context.Context, matchID uuid.UUID) ([]db.GetPendingSelectionsForMatchRow, error)
+	SetEarlyWinNotified(ctx context.Context, arg db.SetEarlyWinNotifiedParams) error
+	SetHTNotified(ctx context.Context, arg db.SetHTNotifiedParams) error
 }
 
 type liveEvaluator struct {
@@ -49,14 +53,36 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 		away, _ = strconv.Atoi(parts[1])
 	}
 
-	// 1. Update match live state in DB
+	// 1. Fetch old match state to calculate deltas
+	oldMatch, err := e.repo.GetMatchByID(ctx, matchID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch old match state: %w", err)
+	}
+
 	dbMatchStatus := "LIVE"
 	isEnded := strings.Contains(strings.ToLower(event.MatchStatus), "end") || strings.Contains(strings.ToLower(event.MatchStatus), "finish") || event.MatchStatus == "2" || event.MatchStatus == "3"
 	if isEnded {
 		dbMatchStatus = "ENDED"
 	}
 
-	err := e.repo.UpdateMatchState(ctx, db.UpdateMatchStateParams{
+	// Calculate Deltas
+	justStarted := oldMatch.Status == "NOT_STARTED" && dbMatchStatus == "LIVE"
+
+	// Assuming H1, HT, H2 in SportyBet. H1->HT or HT->H2
+	wasHT := false
+	if oldMatch.LiveTime != nil {
+		wasHT = strings.Contains(strings.ToLower(*oldMatch.LiveTime), "ht")
+	}
+	justHitHT := !wasHT && strings.Contains(strings.ToLower(event.MatchStatus), "ht")
+
+	oldTotal := int(oldMatch.HomeScore + oldMatch.AwayScore)
+	newTotal := home + away
+	goalScored := newTotal > oldTotal
+	goalCancelled := newTotal < oldTotal
+
+	// 2. Update match live state in DB
+
+	err = e.repo.UpdateMatchState(ctx, db.UpdateMatchStateParams{
 		HomeScore: int32(home),
 		AwayScore: int32(away),
 		Status:    dbMatchStatus,
@@ -74,7 +100,60 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 		AwayScoreHT: away, // stubbed for MVP
 	}
 
-	// 2. Fetch the pending selections (buckets) for this match
+	// 2. Process Delta Notifications for individual tickets
+	if justStarted || justHitHT || goalScored || goalCancelled {
+		pendingSels, err := e.repo.GetPendingSelectionsForMatch(ctx, matchID)
+		if err == nil {
+			for _, ps := range pendingSels {
+				if ps.FcmToken == nil {
+					continue
+				}
+
+				sel := domain.BookingSelection{
+					MarketType: ps.MarketType,
+					Selection:  ps.Selection,
+				}
+				if ps.MarketSpec != nil {
+					sel.MarketSpec = *ps.MarketSpec
+				}
+
+				if goalCancelled {
+					title, body, img := notification.GetVARMessage(oldMatch.HomeTeam, oldMatch.AwayTeam)
+					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"type": "ticket_update", "image": img})
+					if ps.NotifiedEarlyWin {
+						e.repo.SetEarlyWinNotified(ctx, db.SetEarlyWinNotifiedParams{ID: ps.ID, NotifiedEarlyWin: false})
+					}
+					continue
+				}
+
+				if justStarted {
+					title, body, img := notification.GetStartMessage(oldMatch.HomeTeam, oldMatch.AwayTeam)
+					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"type": "ticket_update", "image": img})
+				}
+
+				if justHitHT && !ps.NotifiedHt {
+					status := bettingservice.EvaluateSelection(sel, score)
+					title, body, img := notification.GetHTMessage(status)
+					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"type": "ticket_update", "image": img})
+					e.repo.SetHTNotified(ctx, db.SetHTNotifiedParams{ID: ps.ID, NotifiedHt: true})
+				}
+
+				if goalScored && !ps.NotifiedEarlyWin {
+					status := bettingservice.EvaluateSelection(sel, score)
+					if status == "WON" {
+						// Only hype certain markets early
+						if strings.Contains(ps.MarketType, "OVER") || strings.Contains(ps.MarketType, "BTTS") || strings.Contains(ps.MarketType, "GG") {
+							title, body, img := notification.GetEarlyHitMessage(ps.Selection, oldMatch.HomeTeam+" vs "+oldMatch.AwayTeam)
+							e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"type": "ticket_update", "image": img})
+							e.repo.SetEarlyWinNotified(ctx, db.SetEarlyWinNotifiedParams{ID: ps.ID, NotifiedEarlyWin: true})
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 3. Fetch the pending selections (buckets) for this match (For final settlement)
 	buckets, err := e.repo.GetPendingBucketsForMatch(ctx, matchID)
 	if err != nil {
 		return fmt.Errorf("failed to get pending buckets: %w", err)
@@ -96,7 +175,7 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 
 		// MVP Tech Debt: Disable Fast Settlement.
 		// To prevent False Wins (e.g. Double Chance at 0-0) and the VAR Problem
-		// (goals being cancelled after an Over is settled), we force all bets 
+		// (goals being cancelled after an Over is settled), we force all bets
 		// to remain PENDING until the final whistle.
 		if !isEnded {
 			status = "PENDING"
@@ -144,25 +223,24 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 		Title  string
 		Body   string
 		Ticket string
+		Image  string
 	}
 	notifications := make(map[pushMsg][]string)
 
 	for _, res := range evalResults {
-		var title, body string
+		var title, body, img string
 
 		if res.TicketStatus == "WON" {
-			title = "You won! 🎉"
-			body = fmt.Sprintf("All %d legs landed on ticket %s. Cash out and celebrate! 💸", res.TotalLegs, res.BookingCode)
+			title, body, img = notification.GetTicketWinMessage(int(res.TotalLegs), res.BookingCode)
 		} else if res.TicketStatus == "LOST" {
-			title = "Better luck next time 😔"
-			body = fmt.Sprintf("Ticket %s didn't make it this time. Review it and come back stronger.", res.BookingCode)
+			title, body, img = notification.GetTicketLossMessage(res.BookingCode)
 		}
 		// "Sweat Alert" and "Leg Secured" notifications are temporarily disabled
 		// until Fast Settlement is re-introduced in a future phase.
 
 		// Only queue valid tokens (from the LEFT JOIN)
 		if title != "" && res.FcmToken != nil {
-			msg := pushMsg{Title: title, Body: body, Ticket: res.BookingCodeID.String()}
+			msg := pushMsg{Title: title, Body: body, Ticket: res.BookingCodeID.String(), Image: img}
 			notifications[msg] = append(notifications[msg], *res.FcmToken)
 		}
 	}
@@ -172,6 +250,7 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 		err := e.fcm.SendMulticast(context.Background(), tokens, msg.Title, msg.Body, map[string]string{
 			"ticket_id": msg.Ticket,
 			"type":      "ticket_update",
+			"image":     msg.Image,
 		})
 		if err != nil {
 			log.Printf("FCM Multicast error for ticket %s: %v", msg.Ticket, err)

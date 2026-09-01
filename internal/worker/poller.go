@@ -30,10 +30,10 @@ type Evaluator interface {
 // Poller runs as a continuous background daemon that monitors active matches.
 //
 // Dual-Strategy Engine:
-// 1. Firehose Ingestion: Periodically fetches live matches currently broadcasting on SportyBet
-//    and updates match clocks / live scores.
-// 2. Sweeper Routine: Periodically identifies "stuck" matches (e.g. matches whose kickoff was >3 hours ago
-//    but were never marked ENDED due to temporary network blips) and forcibly resolves them.
+//  1. Firehose Ingestion: Periodically fetches live matches currently broadcasting on SportyBet
+//     and updates match clocks / live scores.
+//  2. Sweeper Routine: Periodically identifies "stuck" matches (e.g. matches whose kickoff was >3 hours ago
+//     but were never marked ENDED due to temporary network blips) and forcibly resolves them.
 type Poller struct {
 	client    CloudflareClient
 	repo      Repository

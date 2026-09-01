@@ -29,8 +29,10 @@ type Querier interface {
 	// Used by the Background Poller to find out what matches to fetch
 	GetActiveBucketsByProvider(ctx context.Context, provider string) ([]GetActiveBucketsByProviderRow, error)
 	GetLatestOTP(ctx context.Context, arg GetLatestOTPParams) (OtpCode, error)
+	GetMatchByID(ctx context.Context, id uuid.UUID) (GetMatchByIDRow, error)
 	GetOAuthProvidersForUser(ctx context.Context, userID uuid.UUID) ([]string, error)
 	GetPendingBucketsForMatch(ctx context.Context, matchID uuid.UUID) ([]GetPendingBucketsForMatchRow, error)
+	GetPendingSelectionsForMatch(ctx context.Context, matchID uuid.UUID) ([]GetPendingSelectionsForMatchRow, error)
 	GetRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
 	// Returns matches that started 3+ hours ago but are still showing as LIVE/NOT_STARTED.
 	// These are matches that disappeared from the SportyBet live firehose (i.e., they ended)
@@ -49,6 +51,8 @@ type Querier interface {
 	MarkOTPUsed(ctx context.Context, id uuid.UUID) error
 	RevokeAllUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
+	SetEarlyWinNotified(ctx context.Context, arg SetEarlyWinNotifiedParams) error
+	SetHTNotified(ctx context.Context, arg SetHTNotifiedParams) error
 	UpdateMatchState(ctx context.Context, arg UpdateMatchStateParams) error
 	// The Fast Settlement query!
 	UpdateSelectionStatus(ctx context.Context, arg UpdateSelectionStatusParams) ([]uuid.UUID, error)

@@ -14,11 +14,11 @@ const RefreshTokenTTLDays = 30
 // GenerateRefreshToken generates a 256-bit (32-byte) cryptographically secure random token.
 //
 // Why SHA-256 instead of Bcrypt here?
-// 1. High Entropy: A 256-bit CSPRNG output has 2^256 possibilities. It is mathematically impossible
-//    to brute force, so it does not need bcrypt's intentional CPU-throttling work factor.
-// 2. Deterministic Hash Lookup: Storing `sha256(raw)` in the DB allows the database to do an O(1)
-//    indexed lookup (`WHERE token_hash = $1`). With bcrypt, the salt is non-deterministic,
-//    meaning you'd have to scan every user row and run bcrypt.Compare on each one!
+//  1. High Entropy: A 256-bit CSPRNG output has 2^256 possibilities. It is mathematically impossible
+//     to brute force, so it does not need bcrypt's intentional CPU-throttling work factor.
+//  2. Deterministic Hash Lookup: Storing `sha256(raw)` in the DB allows the database to do an O(1)
+//     indexed lookup (`WHERE token_hash = $1`). With bcrypt, the salt is non-deterministic,
+//     meaning you'd have to scan every user row and run bcrypt.Compare on each one!
 func GenerateRefreshToken() (raw string, hash string, err error) {
 	b := make([]byte, 32)
 	if _, err = rand.Read(b); err != nil {

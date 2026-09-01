@@ -121,3 +121,35 @@ FROM matches
 WHERE status IN ('NOT_STARTED', 'LIVE')
   AND start_time < NOW() - INTERVAL '3 hours'
 LIMIT 5;
+
+-- name: GetMatchByID :one
+SELECT id, home_team, away_team, start_time, status, home_score, away_score, live_time
+FROM matches
+WHERE id = $1;
+
+-- name: SetEarlyWinNotified :exec
+UPDATE booking_selections
+SET notified_early_win = $2
+WHERE id = $1;
+
+-- name: SetHTNotified :exec
+UPDATE booking_selections
+SET notified_ht = $2
+WHERE id = $1;
+
+-- name: GetPendingSelectionsForMatch :many
+SELECT 
+    bs.id,
+    bs.booking_code_id,
+    bs.market_type,
+    bs.market_spec,
+    bs.selection,
+    bs.notified_early_win,
+    bs.notified_ht,
+    bc.code AS booking_code,
+    ud.fcm_token
+FROM booking_selections bs
+JOIN booking_codes bc ON bs.booking_code_id = bc.id
+JOIN user_tickets ut ON bc.id = ut.booking_code_id
+LEFT JOIN user_devices ud ON ut.user_id = ud.user_id
+WHERE bs.match_id = $1 AND bs.status = 'PENDING';

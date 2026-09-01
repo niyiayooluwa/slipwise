@@ -176,3 +176,19 @@ func (r *Repository) UpdateMatchState(ctx context.Context, arg db.UpdateMatchSta
 func (r *Repository) GetStuckMatches(ctx context.Context) ([]db.GetStuckMatchesRow, error) {
 	return r.queries.GetStuckMatches(ctx)
 }
+
+func (r *Repository) GetMatchByID(ctx context.Context, id uuid.UUID) (db.GetMatchByIDRow, error) {
+	return r.queries.GetMatchByID(ctx, id)
+}
+
+func (r *Repository) GetPendingSelectionsForMatch(ctx context.Context, matchID uuid.UUID) ([]db.GetPendingSelectionsForMatchRow, error) {
+	return r.queries.GetPendingSelectionsForMatch(ctx, matchID)
+}
+
+func (r *Repository) SetEarlyWinNotified(ctx context.Context, arg db.SetEarlyWinNotifiedParams) error {
+	return r.queries.SetEarlyWinNotified(ctx, arg)
+}
+
+func (r *Repository) SetHTNotified(ctx context.Context, arg db.SetHTNotifiedParams) error {
+	return r.queries.SetHTNotified(ctx, arg)
+}

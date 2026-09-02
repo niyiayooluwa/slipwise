@@ -147,6 +147,7 @@ SELECT
     bs.notified_early_win,
     bs.notified_ht,
     bc.code AS booking_code,
+    bc.status AS booking_code_status,
     ud.fcm_token
 FROM booking_selections bs
 JOIN booking_codes bc ON bs.booking_code_id = bc.id

@@ -109,6 +109,14 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 					continue
 				}
 
+				// --- MUTE GUARD: if the user's ticket is already LOST, stop sending ---
+				// GetPendingSelectionsForMatch only returns selections whose status = PENDING,
+				// but the parent booking_code may already be LOST (another leg cut it).
+				// We skip all hype notifications in that case.
+				if ps.BookingCodeStatus == "LOST" {
+					continue
+				}
+
 				sel := domain.BookingSelection{
 					MarketType: ps.MarketType,
 					Selection:  ps.Selection,
@@ -133,7 +141,7 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 
 				if justHitHT && !ps.NotifiedHt {
 					status := bettingservice.EvaluateSelection(sel, score)
-					title, body, img := notification.GetHTMessage(status)
+					title, body, img := notification.GetHTMessage(oldMatch.HomeTeam, oldMatch.AwayTeam, status)
 					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"type": "ticket_update", "image": img})
 					e.repo.SetHTNotified(ctx, db.SetHTNotifiedParams{ID: ps.ID, NotifiedHt: true})
 				}
@@ -231,7 +239,7 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 		var title, body, img string
 
 		if res.TicketStatus == "WON" {
-			title, body, img = notification.GetTicketWinMessage(int(res.TotalLegs), res.BookingCode)
+			title, body, img = notification.GetTicketWinMessage(int(res.TotalLegs))
 		} else if res.TicketStatus == "LOST" {
 			title, body, img = notification.GetTicketLossMessage(res.BookingCode)
 		}

@@ -313,6 +313,7 @@ SELECT
     bs.notified_early_win,
     bs.notified_ht,
     bc.code AS booking_code,
+    bc.status AS booking_code_status,
     ud.fcm_token
 FROM booking_selections bs
 JOIN booking_codes bc ON bs.booking_code_id = bc.id
@@ -322,15 +323,16 @@ WHERE bs.match_id = $1 AND bs.status = 'PENDING'
 `
 
 type GetPendingSelectionsForMatchRow struct {
-	ID               uuid.UUID `json:"id"`
-	BookingCodeID    uuid.UUID `json:"booking_code_id"`
-	MarketType       string    `json:"market_type"`
-	MarketSpec       *string   `json:"market_spec"`
-	Selection        string    `json:"selection"`
-	NotifiedEarlyWin bool      `json:"notified_early_win"`
-	NotifiedHt       bool      `json:"notified_ht"`
-	BookingCode      string    `json:"booking_code"`
-	FcmToken         *string   `json:"fcm_token"`
+	ID                uuid.UUID `json:"id"`
+	BookingCodeID     uuid.UUID `json:"booking_code_id"`
+	MarketType        string    `json:"market_type"`
+	MarketSpec        *string   `json:"market_spec"`
+	Selection         string    `json:"selection"`
+	NotifiedEarlyWin  bool      `json:"notified_early_win"`
+	NotifiedHt        bool      `json:"notified_ht"`
+	BookingCode       string    `json:"booking_code"`
+	BookingCodeStatus string    `json:"booking_code_status"`
+	FcmToken          *string   `json:"fcm_token"`
 }
 
 func (q *Queries) GetPendingSelectionsForMatch(ctx context.Context, matchID uuid.UUID) ([]GetPendingSelectionsForMatchRow, error) {
@@ -351,6 +353,7 @@ func (q *Queries) GetPendingSelectionsForMatch(ctx context.Context, matchID uuid
 			&i.NotifiedEarlyWin,
 			&i.NotifiedHt,
 			&i.BookingCode,
+			&i.BookingCodeStatus,
 			&i.FcmToken,
 		); err != nil {
 			return nil, err

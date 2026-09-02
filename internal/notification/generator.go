@@ -13,54 +13,54 @@ var varGifs = []string{"https://media.giphy.com/media/1rSpWBMQlQJzjglX2I/giphy.g
 var cutGifs = []string{"https://media.giphy.com/media/d2lcHJTG5Tscg/giphy.gif"}       // heartbreak
 var fwGifs = []string{"https://media.giphy.com/media/26tOZ42Mg6pbTUPHW/giphy.gif"}    // fireworks
 
-// Match Started
+// Match Started — all use %s %s so Sprintf is safe
 var startCopies = []string{
 	"Game on! ⚽ %s vs %s just kicked off. We dey watch am for you.",
 	"%s 🆚 %s — ball don roll. Settle in.",
-	"Kickoff! Your slip just went live on this one 👀",
+	"Kickoff! %s vs %s just went live — your slip is in play 👀",
 }
 
-// HT Copies
+// HT Copies — all use %s vs %s so the match name is always shown
 var htWinCopies = []string{
-	"HT: You dey lead so far 🙌 Second half go still make sense.",
-	"Halftime and things dey shape well for you. No relax yet.",
+	"HT: %s vs %s dey shape well for you 🙌 Second half go seal am.",
+	"Halftime — you're on the right side of this one (%s vs %s). No relax yet.",
 }
 var htLossCopies = []string{
-	"HT: Not looking great right now, but 45 minutes is a lot of football 🤞",
-	"We need a massive second half. Football is undefeated though — anything fit happen.",
+	"HT: %s vs %s not looking great right now, but 45 minutes is a lot of football 🤞",
+	"We need a massive second half in %s vs %s. Football is undefeated — anything fit happen.",
 }
 var htLevelCopies = []string{
-	"HT: Score no move your market yet. Second half go decide am.",
+	"HT: %s vs %s — score no move your market yet. Second half go decide am.",
 }
 
-// Early Hit
+// Early Hit — all entries use exactly two %s: selection, matchDesc
 var hitCopies = []string{
 	"Gett in jhoor! 🔥 %s don land for %s.",
-	"Booooooooom!!!!!!!! 💥 %s is IN.",
-	"Odogwu! One leg just paid itself 💰",
-	"LFGGGGG!!!!!! 🚀 %s secured (for now — game still dey play).",
+	"Booooooooom!!!!!!!! 💥 %s just hit in %s.",
+	"LFGGGGG!!!!!! 🚀 %s secured in %s (game still dey play).",
+	"Odogwu behaviour — %s just ticked in %s 💰",
 }
 
-// VAR
+// VAR — all use %s %s
 var varCopies = []string{
 	"VAR strikes! 🚨 A goal just got ruled out in %s vs %s.",
-	"Hold your celebration — VAR say no goal. Back to how e be before.",
-	"Ref changed him mind 🧐 That goal don cancel.",
+	"Hold your celebration — VAR say no goal in %s vs %s. Back to how e be before.",
+	"Ref changed him mind 🧐 That goal don cancel in %s vs %s.",
 }
 
-// Leg Lost
+// Leg Lost — plain strings, no format verbs. Code goes in the title.
 var legLostCopies = []string{
-	"Ah omo, ticket don cut 💔 (Ticket %s)",
 	"Damn. That one no gree work out. We go again.",
 	"Ticket cut ❌ No wahala, next slip go pain them.",
 	"This one pain small, but no shaking. Next!",
+	"Ah omo. Football can be wicked like that. Bounce back.",
 }
 
-// Ticket Won
+// Ticket Won — all use %d for legs count
 var ticketWonCopies = []string{
-	"TICKET DON PAY 🎉🎉 Odogwu behaviour.",
+	"TICKET DON PAY 🎉🎉 All %d legs landed. Odogwu behaviour.",
 	"ALL %d LEGS LANDED. This one na testimony 🙌",
-	"Booooooom, full ticket cleared! 💰",
+	"Booooooom, all %d legs cleared! Money dey your way 💰",
 }
 
 func GetStartMessage(home, away string) (title, body, image string) {
@@ -70,14 +70,16 @@ func GetStartMessage(home, away string) (title, body, image string) {
 	return
 }
 
-func GetHTMessage(status string) (title, body, image string) {
+// GetHTMessage now takes the match names so the body always shows which game it's about.
+func GetHTMessage(home, away, status string) (title, body, image string) {
 	title = "Halftime Check-in ⏱️"
-	if status == "WON" {
-		body = htWinCopies[rand.Intn(len(htWinCopies))]
-	} else if status == "LOST" {
-		body = htLossCopies[rand.Intn(len(htLossCopies))]
-	} else {
-		body = htLevelCopies[rand.Intn(len(htLevelCopies))]
+	switch status {
+	case "WON":
+		body = fmt.Sprintf(htWinCopies[rand.Intn(len(htWinCopies))], home, away)
+	case "LOST":
+		body = fmt.Sprintf(htLossCopies[rand.Intn(len(htLossCopies))], home, away)
+	default:
+		body = fmt.Sprintf(htLevelCopies[rand.Intn(len(htLevelCopies))], home, away)
 	}
 	image = htGifs[rand.Intn(len(htGifs))]
 	return
@@ -97,14 +99,16 @@ func GetVARMessage(home, away string) (title, body, image string) {
 	return
 }
 
+// GetTicketLossMessage — code goes in the title, body is a plain string.
 func GetTicketLossMessage(code string) (title, body, image string) {
-	title = "Ticket Busted ❌"
-	body = fmt.Sprintf(legLostCopies[rand.Intn(len(legLostCopies))], code)
+	title = fmt.Sprintf("Ticket %s cut ❌", code)
+	body = legLostCopies[rand.Intn(len(legLostCopies))]
 	image = cutGifs[rand.Intn(len(cutGifs))]
 	return
 }
 
-func GetTicketWinMessage(legs int, code string) (title, body, image string) {
+// GetTicketWinMessage uses %d for total legs count.
+func GetTicketWinMessage(legs int) (title, body, image string) {
 	title = "BOOOOM! 🎉"
 	body = fmt.Sprintf(ticketWonCopies[rand.Intn(len(ticketWonCopies))], legs)
 	image = fwGifs[rand.Intn(len(fwGifs))]

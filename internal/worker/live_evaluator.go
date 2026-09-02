@@ -151,7 +151,20 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 					if status == "WON" {
 						// Only hype certain markets early
 						if strings.Contains(ps.MarketType, "OVER") || strings.Contains(ps.MarketType, "BTTS") || strings.Contains(ps.MarketType, "GG") {
-							title, body, img := notification.GetEarlyHitMessage(ps.Selection, oldMatch.HomeTeam+" vs "+oldMatch.AwayTeam)
+							
+							selDesc := ps.Selection
+							if ps.MarketSpec != nil && *ps.MarketSpec != "" {
+								selDesc = fmt.Sprintf("%s %s", ps.Selection, *ps.MarketSpec)
+							}
+							if strings.Contains(ps.MarketType, "OVER") {
+								selDesc += " Goals"
+							} else if strings.Contains(ps.MarketType, "BTTS") || strings.Contains(ps.MarketType, "GG") {
+								selDesc = "GG (Both Teams to Score)"
+							}
+
+							matchDesc := fmt.Sprintf("%s %d-%d %s", oldMatch.HomeTeam, home, away, oldMatch.AwayTeam)
+
+							title, body, img := notification.GetEarlyHitMessage(selDesc, matchDesc)
 							e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"ticket_id": ps.BookingCodeID.String(), "type": "ticket_update", "image": img})
 							e.repo.SetEarlyWinNotified(ctx, db.SetEarlyWinNotifiedParams{ID: ps.ID, NotifiedEarlyWin: true})
 						}

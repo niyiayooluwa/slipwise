@@ -47,17 +47,26 @@ func NewAuthHandler(svc *service.AuthService) *AuthHandler {
 // @Failure      500 {object} apitypes.ErrorResponse "hashing or DB failure"
 // @Router       /auth/signup [post]
 func (h *AuthHandler) Signup(c *echo.Context) error {
+	// Initializes a variable req of type SignupRequest to be used in the function
 	var req model.SignupRequest
+
+	// Inputs the value from the request into the variable via Bind() by giving it the address to the
+	// actual variable then checks if there was an error
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid body"})
 	}
+
+	// CHeck if the contents of the email field is empty and returns a 400
 	if req.Email == "" {
 		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "email is required"})
 	}
+
+	// Check if the password meets the required length
 	if len(req.Password) < 8 {
 		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "password must be at least 8 characters"})
 	}
 
+	// Initialize a new error variable that
 	err := h.svc.Signup(c.Request().Context(), req.Username, req.Email, req.Password)
 	switch {
 	case err == nil:

@@ -71,13 +71,13 @@ func main() {
 	// Step 3: Initialize foundational infrastructure services.
 	// JWT issuer handles signing access tokens (15-min TTL) and refresh token mechanics.
 	jwtIssuer := auth.NewJWTIssuer(cfg.JWTSecret)
-	// Brevo is our transactional email provider for OTPs and verification emails.
-	brevoMailer := mailer.NewBrevoMailer(cfg.BrevoAPIKey, cfg.BrevoSenderEmail)
+	// Resend is our transactional email provider for OTPs and verification emails.
+	resendMailer := mailer.NewResendMailer(cfg.ResendAPIKey, cfg.ResendFromAddress)
 
 	// Step 4: Wire the Auth domain (Repository -> Service -> Handler).
 	// Strict Layered Architecture: Handlers know only Services; Services know Repositories & Domain models.
 	authRepo := authRepo.NewAuthRepository(queries)
-	authSvc := authservice.NewAuthService(authRepo, jwtIssuer, brevoMailer, cfg.GoogleClientID, cfg.FeedbackEmail)
+	authSvc := authservice.NewAuthService(authRepo, jwtIssuer, resendMailer, cfg.GoogleClientID, cfg.FeedbackEmail)
 	authH := authhandler.NewAuthHandler(authSvc)
 
 	// Step 5: Wire the Betting domain.

@@ -127,7 +127,7 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 
 				if goalCancelled {
 					title, body, img := notification.GetVARMessage(oldMatch.HomeTeam, oldMatch.AwayTeam)
-					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"type": "ticket_update", "image": img})
+					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"ticket_id": ps.BookingCodeID.String(), "type": "ticket_update", "image": img})
 					if ps.NotifiedEarlyWin {
 						e.repo.SetEarlyWinNotified(ctx, db.SetEarlyWinNotifiedParams{ID: ps.ID, NotifiedEarlyWin: false})
 					}
@@ -136,13 +136,13 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 
 				if justStarted {
 					title, body, img := notification.GetStartMessage(oldMatch.HomeTeam, oldMatch.AwayTeam)
-					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"type": "ticket_update", "image": img})
+					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"ticket_id": ps.BookingCodeID.String(), "type": "ticket_update", "image": img})
 				}
 
 				if justHitHT && !ps.NotifiedHt {
 					status := bettingservice.EvaluateSelection(sel, score)
 					title, body, img := notification.GetHTMessage(oldMatch.HomeTeam, oldMatch.AwayTeam, status)
-					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"type": "ticket_update", "image": img})
+					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"ticket_id": ps.BookingCodeID.String(), "type": "ticket_update", "image": img})
 					e.repo.SetHTNotified(ctx, db.SetHTNotifiedParams{ID: ps.ID, NotifiedHt: true})
 				}
 
@@ -152,7 +152,7 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 						// Only hype certain markets early
 						if strings.Contains(ps.MarketType, "OVER") || strings.Contains(ps.MarketType, "BTTS") || strings.Contains(ps.MarketType, "GG") {
 							title, body, img := notification.GetEarlyHitMessage(ps.Selection, oldMatch.HomeTeam+" vs "+oldMatch.AwayTeam)
-							e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"type": "ticket_update", "image": img})
+							e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"ticket_id": ps.BookingCodeID.String(), "type": "ticket_update", "image": img})
 							e.repo.SetEarlyWinNotified(ctx, db.SetEarlyWinNotifiedParams{ID: ps.ID, NotifiedEarlyWin: true})
 						}
 					}

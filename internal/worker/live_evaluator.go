@@ -41,6 +41,7 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 		SetScore      string `json:"setScore"`
 		MatchStatus   string `json:"matchStatus"`
 		PlayedSeconds string `json:"playedSeconds"` // Bug fix: SportyBet uses "playedSeconds", NOT "matchTime"
+		Status        int    `json:"status"`        // Integer status (e.g. 1=Live, 2/3=Ended)
 	}
 	if err := json.Unmarshal(data, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal event data: %w", err)
@@ -60,7 +61,13 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 	}
 
 	dbMatchStatus := "LIVE"
-	isEnded := strings.Contains(strings.ToLower(event.MatchStatus), "end") || strings.Contains(strings.ToLower(event.MatchStatus), "finish") || event.MatchStatus == "2" || event.MatchStatus == "3"
+
+	// Check both string MatchStatus and integer Status
+	isEnded := strings.Contains(strings.ToLower(event.MatchStatus), "end") ||
+		strings.Contains(strings.ToLower(event.MatchStatus), "finish") ||
+		event.MatchStatus == "2" || event.MatchStatus == "3" ||
+		event.Status == 2 || event.Status == 3 || event.Status == 4
+
 	if isEnded {
 		dbMatchStatus = "ENDED"
 	}

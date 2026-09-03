@@ -37,7 +37,7 @@ type Querier interface {
 	GetPendingBucketsForMatch(ctx context.Context, matchID uuid.UUID) ([]GetPendingBucketsForMatchRow, error)
 	GetPendingSelectionsForMatch(ctx context.Context, matchID uuid.UUID) ([]GetPendingSelectionsForMatchRow, error)
 	GetRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
-	// Returns matches that started 3+ hours ago but are still showing as LIVE/NOT_STARTED.
+	// Returns matches that started 2.25 hours (135 mins) ago but are still showing as LIVE/NOT_STARTED.
 	// These are matches that disappeared from the SportyBet live firehose (i.e., they ended)
 	// but our evaluator never received an ENDED signal for them.
 	// We include the last known scores so the sweeper can force-settle without hitting Cloudflare.

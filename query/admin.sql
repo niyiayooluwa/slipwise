@@ -11,8 +11,10 @@ SELECT
 SELECT 
     id, email, username, email_verified_at, is_admin, is_punter, is_suspended, created_at, updated_at
 FROM users
+WHERE (@search::text = '' OR email ILIKE '%' || @search || '%' OR username ILIKE '%' || @search || '%')
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2;
 
 -- name: GetAdminUsersCount :one
-SELECT COUNT(*) FROM users;
+SELECT COUNT(*) FROM users
+WHERE (@search::text = '' OR email ILIKE '%' || @search || '%' OR username ILIKE '%' || @search || '%');

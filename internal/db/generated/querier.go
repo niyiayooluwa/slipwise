@@ -30,7 +30,7 @@ type Querier interface {
 	GetActiveBucketsByProvider(ctx context.Context, provider string) ([]GetActiveBucketsByProviderRow, error)
 	GetAdminDashboardStats(ctx context.Context) (GetAdminDashboardStatsRow, error)
 	GetAdminUsers(ctx context.Context, arg GetAdminUsersParams) ([]GetAdminUsersRow, error)
-	GetAdminUsersCount(ctx context.Context) (int64, error)
+	GetAdminUsersCount(ctx context.Context, search string) (int64, error)
 	GetLatestOTP(ctx context.Context, arg GetLatestOTPParams) (OtpCode, error)
 	GetMatchByID(ctx context.Context, id uuid.UUID) (GetMatchByIDRow, error)
 	GetOAuthProvidersForUser(ctx context.Context, userID uuid.UUID) ([]string, error)

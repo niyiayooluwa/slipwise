@@ -40,8 +40,8 @@ type DashboardStats struct {
 // Defined here so it can be mocked in service tests.
 type Repo interface {
 	GetDashboardStats(ctx context.Context) (DashboardStats, error)
-	GetUsers(ctx context.Context, limit, offset int32) ([]AdminUser, error)
-	GetUsersCount(ctx context.Context) (int64, error)
+	GetUsers(ctx context.Context, search string, limit, offset int32) ([]AdminUser, error)
+	GetUsersCount(ctx context.Context, search string) (int64, error)
 }
 
 type repository struct {
@@ -68,8 +68,12 @@ func (r *repository) GetDashboardStats(ctx context.Context) (DashboardStats, err
 	}, nil
 }
 
-func (r *repository) GetUsers(ctx context.Context, limit, offset int32) ([]AdminUser, error) {
-	rows, err := r.q.GetAdminUsers(ctx, generated.GetAdminUsersParams{Limit: limit, Offset: offset})
+func (r *repository) GetUsers(ctx context.Context, search string, limit, offset int32) ([]AdminUser, error) {
+	rows, err := r.q.GetAdminUsers(ctx, generated.GetAdminUsersParams{
+		Search: search,
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +99,6 @@ func (r *repository) GetUsers(ctx context.Context, limit, offset int32) ([]Admin
 	return users, nil
 }
 
-func (r *repository) GetUsersCount(ctx context.Context) (int64, error) {
-	return r.q.GetAdminUsersCount(ctx)
+func (r *repository) GetUsersCount(ctx context.Context, search string) (int64, error) {
+	return r.q.GetAdminUsersCount(ctx, search)
 }

@@ -42,11 +42,12 @@ func (h *AdminHandler) GetDashboardStats(c *echo.Context) error {
 
 // GetUsers godoc
 // @Summary      Admin — List Users
-// @Description  Returns a paginated list of all registered users.
+// @Description  Returns a paginated list of all registered users. Supports optional search by email or username.
 // @Tags         admin
 // @Produce      json
-// @Param        page   query  int  false  "Page number (default: 1)"
-// @Param        limit  query  int  false  "Items per page (default: 20, max: 100)"
+// @Param        page   query  int     false  "Page number (default: 1)"
+// @Param        limit  query  int     false  "Items per page (default: 20, max: 100)"
+// @Param        search query  string  false  "Search term for email or username"
 // @Success      200  {object}  model.PaginatedAdminUsersResponse
 // @Failure      401  {object}  apitypes.ErrorResponse
 // @Failure      403  {object}  apitypes.ErrorResponse
@@ -56,8 +57,9 @@ func (h *AdminHandler) GetDashboardStats(c *echo.Context) error {
 func (h *AdminHandler) GetUsers(c *echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	search := c.QueryParam("search")
 
-	resp, err := h.svc.GetUsers(c.Request().Context(), page, limit)
+	resp, err := h.svc.GetUsers(c.Request().Context(), search, page, limit)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to fetch users"})
 	}

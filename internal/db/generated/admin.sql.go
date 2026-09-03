@@ -50,13 +50,15 @@ const getAdminUsers = `-- name: GetAdminUsers :many
 SELECT 
     id, email, username, email_verified_at, is_admin, is_punter, is_suspended, created_at, updated_at
 FROM users
+WHERE ($3::text = '' OR email ILIKE '%' || $3 || '%' OR username ILIKE '%' || $3 || '%')
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `
 
 type GetAdminUsersParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	Limit  int32  `json:"limit"`
+	Offset int32  `json:"offset"`
+	Search string `json:"search"`
 }
 
 type GetAdminUsersRow struct {
@@ -72,7 +74,7 @@ type GetAdminUsersRow struct {
 }
 
 func (q *Queries) GetAdminUsers(ctx context.Context, arg GetAdminUsersParams) ([]GetAdminUsersRow, error) {
-	rows, err := q.db.Query(ctx, getAdminUsers, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getAdminUsers, arg.Limit, arg.Offset, arg.Search)
 	if err != nil {
 		return nil, err
 	}
@@ -103,10 +105,11 @@ func (q *Queries) GetAdminUsers(ctx context.Context, arg GetAdminUsersParams) ([
 
 const getAdminUsersCount = `-- name: GetAdminUsersCount :one
 SELECT COUNT(*) FROM users
+WHERE ($1::text = '' OR email ILIKE '%' || $1 || '%' OR username ILIKE '%' || $1 || '%')
 `
 
-func (q *Queries) GetAdminUsersCount(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, getAdminUsersCount)
+func (q *Queries) GetAdminUsersCount(ctx context.Context, search string) (int64, error) {
+	row := q.db.QueryRow(ctx, getAdminUsersCount, search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

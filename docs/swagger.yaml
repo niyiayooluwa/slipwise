@@ -901,7 +901,8 @@ paths:
       - admin
   /v1/admin/users:
     get:
-      description: Returns a paginated list of all registered users.
+      description: Returns a paginated list of all registered users. Supports optional
+        search by email or username.
       parameters:
       - description: 'Page number (default: 1)'
         in: query
@@ -911,6 +912,10 @@ paths:
         in: query
         name: limit
         type: integer
+      - description: Search term for email or username
+        in: query
+        name: search
+        type: string
       produces:
       - application/json
       responses:

@@ -13,7 +13,7 @@ import (
 // This interface is what you mock in handler tests.
 type Service interface {
 	GetDashboardStats(ctx context.Context) (*adminmodel.DashboardStatsResponse, error)
-	GetUsers(ctx context.Context, page, limit int) (*adminmodel.PaginatedAdminUsersResponse, error)
+	GetUsers(ctx context.Context, search string, page, limit int) (*adminmodel.PaginatedAdminUsersResponse, error)
 }
 
 type service struct {
@@ -40,7 +40,7 @@ func (s *service) GetDashboardStats(ctx context.Context) (*adminmodel.DashboardS
 	}, nil
 }
 
-func (s *service) GetUsers(ctx context.Context, page, limit int) (*adminmodel.PaginatedAdminUsersResponse, error) {
+func (s *service) GetUsers(ctx context.Context, search string, page, limit int) (*adminmodel.PaginatedAdminUsersResponse, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -50,12 +50,12 @@ func (s *service) GetUsers(ctx context.Context, page, limit int) (*adminmodel.Pa
 
 	offset := int32((page - 1) * limit)
 
-	users, err := s.repo.GetUsers(ctx, int32(limit), offset)
+	users, err := s.repo.GetUsers(ctx, search, int32(limit), offset)
 	if err != nil {
 		return nil, err
 	}
 
-	total, err := s.repo.GetUsersCount(ctx)
+	total, err := s.repo.GetUsersCount(ctx, search)
 	if err != nil {
 		return nil, err
 	}

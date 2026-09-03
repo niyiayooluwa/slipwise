@@ -774,7 +774,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns a paginated list of all registered users.",
+                "description": "Returns a paginated list of all registered users. Supports optional search by email or username.",
                 "produces": [
                     "application/json"
                 ],
@@ -793,6 +793,12 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Items per page (default: 20, max: 100)",
                         "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search term for email or username",
+                        "name": "search",
                         "in": "query"
                     }
                 ],

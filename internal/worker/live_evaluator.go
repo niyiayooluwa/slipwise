@@ -151,7 +151,7 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 					if status == "WON" {
 						// Only hype certain markets early
 						if strings.Contains(ps.MarketType, "OVER") || strings.Contains(ps.MarketType, "BTTS") || strings.Contains(ps.MarketType, "GG") {
-							
+
 							selDesc := ps.Selection
 							if ps.MarketSpec != nil && *ps.MarketSpec != "" {
 								selDesc = fmt.Sprintf("%s %s", ps.Selection, *ps.MarketSpec)

@@ -22,6 +22,10 @@ import (
 	"syscall"
 	"time"
 
+	"slipwise/internal/admin"
+	adminhandler "slipwise/internal/admin/handler"
+	adminrepo "slipwise/internal/admin/repository"
+	adminservice "slipwise/internal/admin/service"
 	"slipwise/internal/auth"
 	authhandler "slipwise/internal/auth/handler"
 	authRepo "slipwise/internal/auth/repository"
@@ -95,6 +99,14 @@ func main() {
 	)
 	bettingH := bettinghandler.NewBettingHandler(bettingSvc)
 
+	// Step 6: Wire the Admin domain (Repository -> Service -> Handler).
+	// RequireAdmin middleware is built here (where queries lives) and passed
+	// into Handlers as a pre-wired echo.MiddlewareFunc — the router never touches the DB.
+	adminRepo := adminrepo.New(queries)
+	adminSvc := adminservice.New(adminRepo)
+	adminH := adminhandler.New(adminSvc)
+	adminMiddleware := admin.RequireAdmin(queries)
+
 	// Step 6: Spawn background workers.
 	// Background Worker 1: The Scavenger (Orphan Cleanup Job).
 	// Runs periodically in a background goroutine to clean up booking codes that were previewed
@@ -116,14 +128,12 @@ func main() {
 	go poller.Start(context.Background())
 
 	// Step 7: Bundle handlers and construct the Echo router.
-	// As each new domain (realtime, notifications, betting...) gets its
-	// own repo/service/handler, wire it here and add it to Handlers below.
-	// Route mounting itself never happens in this file — see
-	// internal/httpserver/router.go.
 	handlers := httpserver.Handlers{
-		Auth:    authH,
-		Betting: bettingH,
-		Poller:  poller,
+		Auth:            authH,
+		Betting:         bettingH,
+		Admin:           adminH,
+		AdminMiddleware: adminMiddleware,
+		Poller:          poller,
 	}
 
 	r := httpserver.NewRouter(handlers, jwtIssuer, cfg.AllowedOrigins, cfg.TrustedProxyCIDRs, cfg.CronSecret)

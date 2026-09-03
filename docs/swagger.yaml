@@ -160,6 +160,64 @@ definitions:
         example: user@example.com
         type: string
     type: object
+  internal_admin_model.PaginationMeta:
+    properties:
+      has_next:
+        type: boolean
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  internal_betting_model.PaginationMeta:
+    properties:
+      has_next:
+        type: boolean
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  model.AdminUserItem:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      is_admin:
+        type: boolean
+      is_punter:
+        type: boolean
+      is_suspended:
+        type: boolean
+      is_verified:
+        type: boolean
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+  model.DashboardStatsResponse:
+    properties:
+      lost_tickets:
+        type: integer
+      pending_tickets:
+        type: integer
+      total_booking_codes:
+        type: integer
+      total_tracked_tickets:
+        type: integer
+      total_users:
+        type: integer
+      won_tickets:
+        type: integer
+    type: object
   model.FeedbackRequest:
     properties:
       feedback:
@@ -188,6 +246,15 @@ definitions:
       tracked_at:
         type: string
     type: object
+  model.PaginatedAdminUsersResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/model.AdminUserItem'
+        type: array
+      meta:
+        $ref: '#/definitions/internal_admin_model.PaginationMeta'
+    type: object
   model.PaginatedHistoryResponse:
     properties:
       data:
@@ -195,18 +262,7 @@ definitions:
           $ref: '#/definitions/model.HistoryItem'
         type: array
       meta:
-        $ref: '#/definitions/model.PaginationMeta'
-    type: object
-  model.PaginationMeta:
-    properties:
-      has_next:
-        type: boolean
-      limit:
-        type: integer
-      page:
-        type: integer
-      total:
-        type: integer
+        $ref: '#/definitions/internal_betting_model.PaginationMeta'
     type: object
   model.PreviewRequest:
     properties:
@@ -815,6 +871,70 @@ paths:
       summary: Confirm signup OTP and activate the account
       tags:
       - auth
+  /v1/admin/dashboard:
+    get:
+      description: Returns aggregated app-wide metrics (total users, tickets won/lost/pending,
+        etc.)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.DashboardStatsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Admin — Dashboard Stats
+      tags:
+      - admin
+  /v1/admin/users:
+    get:
+      description: Returns a paginated list of all registered users.
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 20, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.PaginatedAdminUsersResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Admin — List Users
+      tags:
+      - admin
   /v1/tickets:
     get:
       description: |-

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	adminhandler "slipwise/internal/admin/handler"
 	"slipwise/internal/auth"
 	authhandler "slipwise/internal/auth/handler"
 	bettinghandler "slipwise/internal/betting/handler"
@@ -28,8 +29,11 @@ type Handlers struct {
 	Auth    *authhandler.AuthHandler
 	Betting *bettinghandler.BettingHandler
 	Poller  *worker.Poller
-	// Realtime      *realtimehandler.RealtimeHandler
-	// Notifications *notificationshandler.NotificationsHandler
+	// Admin handler + its pre-built RequireAdmin middleware.
+	// Both are wired in main.go (where queries lives), keeping the router
+	// completely decoupled from the DB layer.
+	Admin           *adminhandler.AdminHandler
+	AdminMiddleware echo.MiddlewareFunc
 }
 
 // NewRouter builds the complete Echo HTTP application router.
@@ -85,6 +89,12 @@ func NewRouter(h Handlers, jwtIssuer *auth.JWTIssuer, allowedOrigins []string, t
 	userGroup.GET("/me/stats", h.Betting.GetStats, CacheControl(10))
 
 	mountBettingRoutes(protectedGroup.Group("/v1/tickets"), h.Betting)
+
+	// Admin routes — JWT auth (above) + RequireAdmin middleware (pre-built in main.go).
+	// The router has zero knowledge of the DB; it just applies the pre-wired middleware.
+	adminGroup := protectedGroup.Group("/v1/admin", h.AdminMiddleware)
+	adminGroup.GET("/dashboard", h.Admin.GetDashboardStats)
+	adminGroup.GET("/users", h.Admin.GetUsers)
 
 	return e
 }

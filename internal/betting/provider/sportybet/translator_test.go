@@ -2,7 +2,11 @@ package sportybet
 
 import (
 	"context"
+	"strconv"
 	"testing"
+	"time"
+
+	"slipwise/internal/betting/service"
 )
 
 func TestTranslateSportyBet(t *testing.T) {
@@ -41,20 +45,14 @@ func TestTranslateSportyBet(t *testing.T) {
 		},
 	}
 
-	payload := SportyBetPayload{
-		Data: struct {
-			Ticket   SportyBetTicket `json:"ticket"`
-			Outcomes []SportyBetItem `json:"outcomes"`
-		}{
-			Ticket: SportyBetTicket{
-				Selections: []SportyBetTicketSelection{
-					{EventID: "sr:match:72868102", MarketID: "m1", OutcomeID: "o1"},
-					{EventID: "sr:match:72868102", MarketID: "m2", OutcomeID: "o2"},
-				},
-			},
-			Outcomes: input,
-		},
+	var payload SportyBetPayload
+	payload.BizCode = 10000
+	payload.Data.ShareCode = "J6J2TN"
+	payload.Data.Ticket.Selections = []SportyBetTicketSelection{
+		{EventID: "sr:match:72868102", MarketID: "m1", OutcomeID: "o1"},
+		{EventID: "sr:match:72868102", MarketID: "m2", OutcomeID: "o2"},
 	}
+	payload.Data.Outcomes = input
 	matches, selections := TranslateSportyBet(payload)
 	if len(matches) != 1 {
 		t.Fatalf("expected 1 match, got %d", len(matches))
@@ -103,7 +101,30 @@ func (f *fakeCloudflareClient) FetchTicketByCode(ctx context.Context, shareCode 
 }
 
 func TestFetchAndParse_Success(t *testing.T) {
-	jsonPayload := []byte(`{"data":{"ticket":{"selections":[]},"outcomes":[]}}`)
+	futureTime := time.Now().Add(2 * time.Hour).UnixMilli()
+	jsonPayload := []byte(`{
+		"bizCode": 10000,
+		"message": "Success",
+		"data": {
+			"shareCode": "J6J2TN",
+			"ticket": {
+				"selections": [{"eventId": "sr:match:123", "marketId": "m1", "outcomeId": "o1"}]
+			},
+			"outcomes": [{
+				"eventId": "sr:match:123",
+				"homeTeamName": "Arsenal",
+				"awayTeamName": "Chelsea",
+				"estimateStartTime": ` + strconv.FormatInt(futureTime, 10) + `,
+				"matchStatus": "Not start",
+				"status": 0,
+				"markets": [{
+					"id": "m1",
+					"desc": "1X2",
+					"outcomes": [{"id": "o1", "desc": "Home", "odds": "1.85"}]
+				}]
+			}]
+		}
+	}`)
 	client := &fakeCloudflareClient{response: jsonPayload}
 	provider := NewProvider(client)
 
@@ -116,6 +137,53 @@ func TestFetchAndParse_Success(t *testing.T) {
 	}
 	if ticket.Provider != "SPORTYBET" {
 		t.Errorf("expected provider SPORTYBET, got %s", ticket.Provider)
+	}
+	if len(ticket.Selections) != 1 {
+		t.Errorf("expected 1 selection, got %d", len(ticket.Selections))
+	}
+}
+
+func TestFetchAndParse_InvalidBizCode(t *testing.T) {
+	jsonPayload := []byte(`{"bizCode": 19000, "message": "The code is invalid."}`)
+	client := &fakeCloudflareClient{response: jsonPayload}
+	provider := NewProvider(client)
+
+	_, err := provider.FetchAndParse(context.Background(), "INVALID")
+	if err != service.ErrTicketNotFound {
+		t.Fatalf("expected ErrTicketNotFound, got %v", err)
+	}
+}
+
+func TestFetchAndParse_AllMatchesEnded(t *testing.T) {
+	jsonPayload := []byte(`{
+		"bizCode": 10000,
+		"message": "Success",
+		"data": {
+			"shareCode": "GRBA39",
+			"ticket": {
+				"selections": [{"eventId": "sr:match:123", "marketId": "m1", "outcomeId": "o1"}]
+			},
+			"outcomes": [{
+				"eventId": "sr:match:123",
+				"homeTeamName": "Team A",
+				"awayTeamName": "Team B",
+				"estimateStartTime": 1788595200000,
+				"matchStatus": "Ended",
+				"status": 3,
+				"markets": [{
+					"id": "m1",
+					"desc": "1X2",
+					"outcomes": [{"id": "o1", "desc": "Home", "odds": "1.05"}]
+				}]
+			}]
+		}
+	}`)
+	client := &fakeCloudflareClient{response: jsonPayload}
+	provider := NewProvider(client)
+
+	_, err := provider.FetchAndParse(context.Background(), "GRBA39")
+	if err != service.ErrTicketAllMatchesEnded {
+		t.Fatalf("expected ErrTicketAllMatchesEnded, got %v", err)
 	}
 }
 

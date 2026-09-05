@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"slipwise/internal/betting/domain"
+	"slipwise/internal/betting/service"
 )
 
 type CloudflareClient interface {
@@ -34,7 +35,35 @@ func (p *Provider) FetchAndParse(ctx context.Context, shareCode string) (*domain
 		return nil, err
 	}
 
+	// 1. Verify business code
+	if payload.BizCode != 0 && payload.BizCode != 10000 {
+		return nil, service.ErrTicketNotFound
+	}
+
+	// 2. Verify selections & outcomes exist
+	if len(payload.Data.Ticket.Selections) == 0 || len(payload.Data.Outcomes) == 0 {
+		return nil, service.ErrTicketNotFound
+	}
+
+	// 3. Verify that not all matches have already concluded
+	allEnded := true
+	for _, item := range payload.Data.Outcomes {
+		isEnded := strings.EqualFold(item.MatchStatus, "Ended") ||
+			item.Status == 3 || item.Status == 4 ||
+			(item.EstimateStartTime > 0 && time.Now().After(time.UnixMilli(item.EstimateStartTime).Add(3*time.Hour)))
+		if !isEnded {
+			allEnded = false
+			break
+		}
+	}
+	if allEnded {
+		return nil, service.ErrTicketAllMatchesEnded
+	}
+
 	matches, bookingSelections := TranslateSportyBet(payload)
+	if len(bookingSelections) == 0 {
+		return nil, service.ErrTicketNotFound
+	}
 
 	totalOdds := 1.0
 
@@ -109,13 +138,18 @@ type SportyBetItem struct {
 	HomeTeamName      string            `json:"homeTeamName"`
 	AwayTeamName      string            `json:"awayTeamName"`
 	EstimateStartTime int64             `json:"estimateStartTime"`
+	MatchStatus       string            `json:"matchStatus"`
+	Status            int               `json:"status"` // 0: not start, 1: live, 3/4: ended
 	Markets           []SportyBetMarket `json:"markets"`
 }
 
 type SportyBetPayload struct {
-	Data struct {
-		Ticket   SportyBetTicket `json:"ticket"`
-		Outcomes []SportyBetItem `json:"outcomes"`
+	BizCode int    `json:"bizCode"`
+	Message string `json:"message"`
+	Data    struct {
+		ShareCode string          `json:"shareCode"`
+		Ticket    SportyBetTicket `json:"ticket"`
+		Outcomes  []SportyBetItem `json:"outcomes"`
 	} `json:"data"`
 }
 

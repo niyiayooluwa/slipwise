@@ -50,7 +50,10 @@ func (h *BettingHandler) Preview(c *echo.Context) error {
 
 	result, err := h.svc.PreviewTicket(c.Request().Context(), req.Provider, req.Code)
 	if err != nil {
-		if errors.Is(err, service.ErrUnsupportedProvider) {
+		if errors.Is(err, service.ErrUnsupportedProvider) ||
+			errors.Is(err, service.ErrTicketNotFound) ||
+			errors.Is(err, service.ErrTicketExpired) ||
+			errors.Is(err, service.ErrTicketAllMatchesEnded) {
 			return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: err.Error()})
 		}
 		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: err.Error()})

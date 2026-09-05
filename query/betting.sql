@@ -58,9 +58,22 @@ SELECT
     bc.code,
     bc.total_odds,
     bc.status AS overall_status,
-    bc.updated_at
+    bc.updated_at,
+    COALESCE(bs_stats.total_legs, 0)::int AS total_legs,
+    COALESCE(bs_stats.won_legs, 0)::int AS won_legs,
+    COALESCE(bs_stats.lost_legs, 0)::int AS lost_legs,
+    COALESCE(bs_stats.pending_legs, 0)::int AS pending_legs
 FROM user_tickets ut
 JOIN booking_codes bc ON ut.booking_code_id = bc.id
+LEFT JOIN LATERAL (
+    SELECT 
+        COUNT(*) AS total_legs,
+        COUNT(*) FILTER (WHERE status = 'WON') AS won_legs,
+        COUNT(*) FILTER (WHERE status = 'LOST') AS lost_legs,
+        COUNT(*) FILTER (WHERE status = 'PENDING') AS pending_legs
+    FROM booking_selections
+    WHERE booking_code_id = bc.id
+) bs_stats ON true
 WHERE ut.user_id = $1
   AND (sqlc.narg('status')::text IS NULL OR bc.status = sqlc.narg('status')::text)
   AND (sqlc.narg('since')::timestamptz IS NULL OR bc.updated_at > sqlc.narg('since')::timestamptz)

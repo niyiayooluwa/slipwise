@@ -190,6 +190,10 @@ func (h *BettingHandler) GetHistory(c *echo.Context) error {
 			Code:          row.Code,
 			TotalOdds:     totalOdds.Float64,
 			OverallStatus: row.OverallStatus,
+			TotalLegs:     row.TotalLegs,
+			WonLegs:       row.WonLegs,
+			LostLegs:      row.LostLegs,
+			PendingLegs:   row.PendingLegs,
 		})
 	}
 
@@ -216,7 +220,7 @@ func (h *BettingHandler) GetHistory(c *echo.Context) error {
 // @Tags         tickets
 // @Produce      json
 // @Param        id path string true "UUID of the tracked user_ticket"
-// @Success      200 {array} model.TicketDetailItem "Detailed breakdown of the ticket's selections"
+// @Success      200 {object} model.TicketDetailsResponse "Detailed breakdown of the ticket's selections and aggregate summary"
 // @Failure      400 {object} apitypes.ErrorResponse "Invalid ticket UUID format"
 // @Failure      401 {object} apitypes.ErrorResponse "Unauthorized - missing or invalid token"
 // @Failure      500 {object} apitypes.ErrorResponse "Database retrieval error"
@@ -242,7 +246,9 @@ func (h *BettingHandler) GetTicketDetails(c *echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: err.Error()})
 	}
 
-	var resp []model.TicketDetailItem
+	var selections []model.TicketDetailItem
+	var summary model.TicketSummary
+
 	for _, row := range details {
 		odds, _ := row.Odds.Float64Value()
 		var marketSpec string
@@ -250,7 +256,17 @@ func (h *BettingHandler) GetTicketDetails(c *echo.Context) error {
 			marketSpec = *row.MarketSpec
 		}
 
-		resp = append(resp, model.TicketDetailItem{
+		summary.TotalLegs++
+		switch row.SelectionStatus {
+		case "WON":
+			summary.WonLegs++
+		case "LOST":
+			summary.LostLegs++
+		case "PENDING":
+			summary.PendingLegs++
+		}
+
+		selections = append(selections, model.TicketDetailItem{
 			SelectionID:      row.SelectionID.String(),
 			MarketType:       row.MarketType,
 			MarketSpec:       marketSpec,
@@ -268,11 +284,14 @@ func (h *BettingHandler) GetTicketDetails(c *echo.Context) error {
 		})
 	}
 
-	if resp == nil {
-		resp = []model.TicketDetailItem{}
+	if selections == nil {
+		selections = []model.TicketDetailItem{}
 	}
 
-	return c.JSON(http.StatusOK, resp)
+	return c.JSON(http.StatusOK, model.TicketDetailsResponse{
+		Summary:    summary,
+		Selections: selections,
+	})
 }
 
 // DeleteTicket godoc

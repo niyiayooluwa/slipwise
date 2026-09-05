@@ -233,18 +233,26 @@ definitions:
         type: string
       description:
         type: string
+      lost_legs:
+        type: integer
       overall_status:
         type: string
+      pending_legs:
+        type: integer
       provider:
         type: string
       stake:
         type: number
       ticket_id:
         type: string
+      total_legs:
+        type: integer
       total_odds:
         type: number
       tracked_at:
         type: string
+      won_legs:
+        type: integer
     type: object
   model.PaginatedAdminUsersResponse:
     properties:
@@ -335,6 +343,26 @@ definitions:
         type: string
       start_time:
         type: string
+    type: object
+  model.TicketDetailsResponse:
+    properties:
+      selections:
+        items:
+          $ref: '#/definitions/model.TicketDetailItem'
+        type: array
+      summary:
+        $ref: '#/definitions/model.TicketSummary'
+    type: object
+  model.TicketSummary:
+    properties:
+      lost_legs:
+        type: integer
+      pending_legs:
+        type: integer
+      total_legs:
+        type: integer
+      won_legs:
+        type: integer
     type: object
   model.TrackRequest:
     properties:
@@ -1035,11 +1063,10 @@ paths:
       - application/json
       responses:
         "200":
-          description: Detailed breakdown of the ticket's selections
+          description: Detailed breakdown of the ticket's selections and aggregate
+            summary
           schema:
-            items:
-              $ref: '#/definitions/model.TicketDetailItem'
-            type: array
+            $ref: '#/definitions/model.TicketDetailsResponse'
         "400":
           description: Invalid ticket UUID format
           schema:

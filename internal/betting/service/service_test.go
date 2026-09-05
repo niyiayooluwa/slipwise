@@ -52,6 +52,10 @@ func (r *fakeRepo) GetUserHistory(ctx context.Context, arg db.GetUserHistoryPara
 			Code:          "J6J2TN",
 			TotalOdds:     pgtype.Numeric{Valid: true},
 			OverallStatus: "PENDING",
+			TotalLegs:     5,
+			WonLegs:       2,
+			LostLegs:      1,
+			PendingLegs:   2,
 		})
 	}
 	return rows, nil

@@ -1022,12 +1022,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Detailed breakdown of the ticket's selections",
+                        "description": "Detailed breakdown of the ticket's selections and aggregate summary",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/model.TicketDetailItem"
-                            }
+                            "$ref": "#/definitions/model.TicketDetailsResponse"
                         }
                     },
                     "400": {
@@ -1525,8 +1522,14 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "lost_legs": {
+                    "type": "integer"
+                },
                 "overall_status": {
                     "type": "string"
+                },
+                "pending_legs": {
+                    "type": "integer"
                 },
                 "provider": {
                     "type": "string"
@@ -1537,11 +1540,17 @@ const docTemplate = `{
                 "ticket_id": {
                     "type": "string"
                 },
+                "total_legs": {
+                    "type": "integer"
+                },
                 "total_odds": {
                     "type": "number"
                 },
                 "tracked_at": {
                     "type": "string"
+                },
+                "won_legs": {
+                    "type": "integer"
                 }
             }
         },
@@ -1679,6 +1688,37 @@ const docTemplate = `{
                 },
                 "start_time": {
                     "type": "string"
+                }
+            }
+        },
+        "model.TicketDetailsResponse": {
+            "type": "object",
+            "properties": {
+                "selections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.TicketDetailItem"
+                    }
+                },
+                "summary": {
+                    "$ref": "#/definitions/model.TicketSummary"
+                }
+            }
+        },
+        "model.TicketSummary": {
+            "type": "object",
+            "properties": {
+                "lost_legs": {
+                    "type": "integer"
+                },
+                "pending_legs": {
+                    "type": "integer"
+                },
+                "total_legs": {
+                    "type": "integer"
+                },
+                "won_legs": {
+                    "type": "integer"
                 }
             }
         },

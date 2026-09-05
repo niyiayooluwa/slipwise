@@ -46,6 +46,18 @@ type HistoryItem struct {
 	Code          string   `json:"code"`
 	TotalOdds     float64  `json:"total_odds"`
 	OverallStatus string   `json:"overall_status"`
+	TotalLegs     int32    `json:"total_legs"`
+	WonLegs       int32    `json:"won_legs"`
+	LostLegs      int32    `json:"lost_legs"`
+	PendingLegs   int32    `json:"pending_legs"`
+}
+
+// TicketSummary contains aggregate counts of selections on a ticket.
+type TicketSummary struct {
+	TotalLegs   int32 `json:"total_legs"`
+	WonLegs     int32 `json:"won_legs"`
+	LostLegs    int32 `json:"lost_legs"`
+	PendingLegs int32 `json:"pending_legs"`
 }
 
 // TicketDetailItem represents a single selection detail when viewing a tracked ticket.
@@ -64,6 +76,12 @@ type TicketDetailItem struct {
 	HomeScore        int32   `json:"home_score"`
 	AwayScore        int32   `json:"away_score"`
 	LiveTime         *string `json:"live_time"`
+}
+
+// TicketDetailsResponse is the response body for GET /v1/tickets/{id}.
+type TicketDetailsResponse struct {
+	Summary    TicketSummary      `json:"summary"`
+	Selections []TicketDetailItem `json:"selections"`
 }
 
 // PaginationMeta holds metadata for paginated responses.

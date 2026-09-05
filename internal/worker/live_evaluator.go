@@ -165,6 +165,11 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 							}
 							if strings.Contains(ps.MarketType, "OVER") {
 								selDesc += " Goals"
+								if ps.MarketType == "HOME_OVER_UNDER" {
+									selDesc = fmt.Sprintf("%s (Home) %s", oldMatch.HomeTeam, selDesc)
+								} else if ps.MarketType == "AWAY_OVER_UNDER" {
+									selDesc = fmt.Sprintf("%s (Away) %s", oldMatch.AwayTeam, selDesc)
+								}
 							} else if strings.Contains(ps.MarketType, "BTTS") || strings.Contains(ps.MarketType, "GG") {
 								selDesc = "GG (Both Teams to Score)"
 							}

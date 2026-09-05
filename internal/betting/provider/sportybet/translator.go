@@ -156,7 +156,7 @@ func TranslateSportyBet(payload SportyBetPayload) ([]domain.Match, []domain.Book
 					marketText = market.Desc
 				}
 
-				mType = MapMarketType(marketText)
+				mType = MapMarketType(marketText, item.HomeTeamName, item.AwayTeamName)
 				mSpec = CleanSpecifier(market.Specifier)
 
 				for _, outcome := range market.Outcomes {
@@ -187,7 +187,7 @@ func TranslateSportyBet(payload SportyBetPayload) ([]domain.Match, []domain.Book
 	return matches, selections
 }
 
-func MapMarketType(desc string) string {
+func MapMarketType(desc, homeTeam, awayTeam string) string {
 	desc = strings.ToLower(desc)
 
 	// Extract Combos first
@@ -197,36 +197,46 @@ func MapMarketType(desc string) string {
 			parts = strings.Split(desc, " and ")
 		}
 		if len(parts) == 2 {
-			m1 := mapBaseMarket(strings.TrimSpace(parts[0]))
-			m2 := mapBaseMarket(strings.TrimSpace(parts[1]))
+			m1 := mapBaseMarket(strings.TrimSpace(parts[0]), homeTeam, awayTeam)
+			m2 := mapBaseMarket(strings.TrimSpace(parts[1]), homeTeam, awayTeam)
 			if m1 != "UNKNOWN" && m2 != "UNKNOWN" {
 				return m1 + "_AND_" + m2
 			}
 		}
 	}
 
-	return mapBaseMarket(desc)
+	return mapBaseMarket(desc, homeTeam, awayTeam)
 }
 
-func mapBaseMarket(desc string) string {
-	// Blacklist minute-interval markets that cannot be mathematically tracked by HT/FT
-	if strings.Contains(desc, "early goals") || strings.Contains(desc, "minute") {
+func mapBaseMarket(desc, homeTeam, awayTeam string) string {
+	// Blacklist markets that cannot be mathematically tracked by simple HT/FT goal scores
+	lowerDesc := strings.ToLower(desc)
+	if strings.Contains(lowerDesc, "early goals") || strings.Contains(lowerDesc, "minute") ||
+		strings.Contains(lowerDesc, "corner") || strings.Contains(lowerDesc, "card") ||
+		strings.Contains(lowerDesc, "booking") || strings.Contains(lowerDesc, "1up") ||
+		strings.Contains(lowerDesc, "2up") || strings.Contains(lowerDesc, "never down") {
 		return "UNKNOWN"
 	}
 
 	prefix := ""
-	if strings.HasPrefix(desc, "1st half - ") || strings.HasPrefix(desc, "1st half ") || strings.Contains(desc, "halftime") {
+	if strings.Contains(desc, "1st half") || strings.Contains(desc, "halftime") {
 		prefix = "1ST_HALF_"
-	} else if strings.HasPrefix(desc, "2nd half - ") || strings.HasPrefix(desc, "2nd half ") {
+	} else if strings.Contains(desc, "2nd half") {
 		prefix = "2ND_HALF_"
 	}
 
 	// Stripping prefixes to make base matching clean
 	cleanDesc := strings.ReplaceAll(desc, "1st half - ", "")
 	cleanDesc = strings.ReplaceAll(cleanDesc, "1st half ", "")
+	cleanDesc = strings.ReplaceAll(cleanDesc, "1st half", "")
 	cleanDesc = strings.ReplaceAll(cleanDesc, "2nd half - ", "")
 	cleanDesc = strings.ReplaceAll(cleanDesc, "2nd half ", "")
+	cleanDesc = strings.ReplaceAll(cleanDesc, "2nd half", "")
 	cleanDesc = strings.ReplaceAll(cleanDesc, "halftime", "")
+
+	// Precompute lowercase team names for robust mapping
+	homeStr := strings.ToLower(homeTeam)
+	awayStr := strings.ToLower(awayTeam)
 
 	base := "UNKNOWN"
 	if strings.Contains(cleanDesc, "1x2") {
@@ -236,9 +246,10 @@ func mapBaseMarket(desc string) string {
 	} else if strings.Contains(cleanDesc, "asian handicap") {
 		base = "ASIAN_HANDICAP"
 	} else if strings.Contains(cleanDesc, "over/under") || strings.Contains(cleanDesc, "over / under") || strings.Contains(cleanDesc, "o/u") {
-		if strings.Contains(cleanDesc, "home") {
+		// Use explicit home/away strings or match against the exact team names to map it securely
+		if strings.Contains(cleanDesc, "home") || (homeStr != "" && strings.Contains(cleanDesc, homeStr)) {
 			base = "HOME_OVER_UNDER"
-		} else if strings.Contains(cleanDesc, "away") {
+		} else if strings.Contains(cleanDesc, "away") || (awayStr != "" && strings.Contains(cleanDesc, awayStr)) {
 			base = "AWAY_OVER_UNDER"
 		} else {
 			base = "OVER_UNDER"
@@ -251,46 +262,56 @@ func mapBaseMarket(desc string) string {
 		}
 	} else if strings.Contains(cleanDesc, "double chance") {
 		base = "DOUBLE_CHANCE"
-	} else if strings.Contains(cleanDesc, "draw no bet") {
-		base = "DRAW_NO_BET"
 	} else if strings.Contains(cleanDesc, "handicap") {
 		base = "HANDICAP"
 	} else if strings.Contains(cleanDesc, "correct score") {
 		base = "CORRECT_SCORE"
 	} else if strings.Contains(cleanDesc, "half-time/full-time") || strings.Contains(cleanDesc, "ht/ft") || strings.Contains(cleanDesc, "half time/full time") {
 		base = "HT_FT"
-	} else if strings.Contains(cleanDesc, "home no bet") {
-		base = "HOME_NO_BET"
-	} else if strings.Contains(cleanDesc, "away no bet") {
-		base = "AWAY_NO_BET"
 	} else if strings.Contains(cleanDesc, "exact goals") {
 		base = "EXACT_GOALS"
 	} else if strings.Contains(cleanDesc, "teams to score") {
 		base = "TEAMS_TO_SCORE"
-	} else if strings.Contains(cleanDesc, "home team or over") || strings.Contains(cleanDesc, "home or over") {
-		base = "HOME_OR_OVER"
-	} else if strings.Contains(cleanDesc, "draw or over") {
-		base = "DRAW_OR_OVER"
-	} else if strings.Contains(cleanDesc, "away team or over") || strings.Contains(cleanDesc, "away or over") {
-		base = "AWAY_OR_OVER"
-	} else if strings.Contains(cleanDesc, "home team or under") || strings.Contains(cleanDesc, "home or under") {
-		base = "HOME_OR_UNDER"
-	} else if strings.Contains(cleanDesc, "draw or under") {
-		base = "DRAW_OR_UNDER"
-	} else if strings.Contains(cleanDesc, "away team or under") || strings.Contains(cleanDesc, "away or under") {
-		base = "AWAY_OR_UNDER"
-	} else if strings.Contains(cleanDesc, "home team or gg") {
-		base = "HOME_OR_GG"
-	} else if strings.Contains(cleanDesc, "draw or gg") {
-		base = "DRAW_OR_GG"
-	} else if strings.Contains(cleanDesc, "away team or gg") {
-		base = "AWAY_OR_GG"
-	} else if strings.Contains(cleanDesc, "home team or any clean sheet") {
-		base = "HOME_OR_CLEAN_SHEET"
-	} else if strings.Contains(cleanDesc, "draw or any clean sheet") {
-		base = "DRAW_OR_CLEAN_SHEET"
-	} else if strings.Contains(cleanDesc, "away team or any clean sheet") {
-		base = "AWAY_OR_CLEAN_SHEET"
+	} else if strings.Contains(cleanDesc, "no bet") {
+		if strings.Contains(cleanDesc, "home") || (homeStr != "" && strings.Contains(cleanDesc, homeStr)) {
+			base = "HOME_NO_BET"
+		} else if strings.Contains(cleanDesc, "away") || (awayStr != "" && strings.Contains(cleanDesc, awayStr)) {
+			base = "AWAY_NO_BET"
+		} else if strings.Contains(cleanDesc, "draw") {
+			base = "DRAW_NO_BET"
+		}
+	} else if strings.Contains(cleanDesc, "or over") {
+		if strings.Contains(cleanDesc, "home") || (homeStr != "" && strings.Contains(cleanDesc, homeStr)) {
+			base = "HOME_OR_OVER"
+		} else if strings.Contains(cleanDesc, "away") || (awayStr != "" && strings.Contains(cleanDesc, awayStr)) {
+			base = "AWAY_OR_OVER"
+		} else if strings.Contains(cleanDesc, "draw") {
+			base = "DRAW_OR_OVER"
+		}
+	} else if strings.Contains(cleanDesc, "or under") {
+		if strings.Contains(cleanDesc, "home") || (homeStr != "" && strings.Contains(cleanDesc, homeStr)) {
+			base = "HOME_OR_UNDER"
+		} else if strings.Contains(cleanDesc, "away") || (awayStr != "" && strings.Contains(cleanDesc, awayStr)) {
+			base = "AWAY_OR_UNDER"
+		} else if strings.Contains(cleanDesc, "draw") {
+			base = "DRAW_OR_UNDER"
+		}
+	} else if strings.Contains(cleanDesc, "or gg") {
+		if strings.Contains(cleanDesc, "home") || (homeStr != "" && strings.Contains(cleanDesc, homeStr)) {
+			base = "HOME_OR_GG"
+		} else if strings.Contains(cleanDesc, "away") || (awayStr != "" && strings.Contains(cleanDesc, awayStr)) {
+			base = "AWAY_OR_GG"
+		} else if strings.Contains(cleanDesc, "draw") {
+			base = "DRAW_OR_GG"
+		}
+	} else if strings.Contains(cleanDesc, "or any clean sheet") || strings.Contains(cleanDesc, "or clean sheet") {
+		if strings.Contains(cleanDesc, "home") || (homeStr != "" && strings.Contains(cleanDesc, homeStr)) {
+			base = "HOME_OR_CLEAN_SHEET"
+		} else if strings.Contains(cleanDesc, "away") || (awayStr != "" && strings.Contains(cleanDesc, awayStr)) {
+			base = "AWAY_OR_CLEAN_SHEET"
+		} else if strings.Contains(cleanDesc, "draw") {
+			base = "DRAW_OR_CLEAN_SHEET"
+		}
 	}
 
 	if base == "UNKNOWN" {

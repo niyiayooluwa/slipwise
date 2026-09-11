@@ -221,6 +221,7 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 				MatchID:    matchID,
 				MarketType: b.MarketType,
 				Selection:  b.Selection,
+				MarketSpec: b.MarketSpec,
 			})
 			if err != nil {
 				log.Printf("Failed to update status for match %s bucket %s:%s to %s: %v", providerID, b.MarketType, b.Selection, status, err)

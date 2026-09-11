@@ -646,6 +646,7 @@ SET status = $1
 WHERE match_id = $2 
   AND market_type = $3 
   AND selection = $4 
+  AND market_spec IS NOT DISTINCT FROM $5
   AND status = 'PENDING'
 RETURNING booking_code_id
 `
@@ -655,6 +656,7 @@ type UpdateSelectionStatusParams struct {
 	MatchID    uuid.UUID `json:"match_id"`
 	MarketType string    `json:"market_type"`
 	Selection  string    `json:"selection"`
+	MarketSpec *string   `json:"market_spec"`
 }
 
 // The Fast Settlement query!
@@ -664,6 +666,7 @@ func (q *Queries) UpdateSelectionStatus(ctx context.Context, arg UpdateSelection
 		arg.MatchID,
 		arg.MarketType,
 		arg.Selection,
+		arg.MarketSpec,
 	)
 	if err != nil {
 		return nil, err

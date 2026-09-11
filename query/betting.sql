@@ -41,6 +41,7 @@ SET status = $1
 WHERE match_id = $2 
   AND market_type = $3 
   AND selection = $4 
+  AND market_spec IS NOT DISTINCT FROM sqlc.narg('market_spec')
   AND status = 'PENDING'
 RETURNING booking_code_id;
 

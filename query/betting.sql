@@ -113,7 +113,7 @@ SELECT
 FROM booking_selections bs
 JOIN matches m ON bs.match_id = m.id
 JOIN user_tickets ut ON ut.booking_code_id = bs.booking_code_id
-WHERE ut.id = $1 AND ut.user_id = $2;
+WHERE (ut.id = $1 OR ut.booking_code_id = $1) AND ut.user_id = $2;
 
 -- name: CleanupOrphanedBookingCodes :exec
 DELETE FROM booking_codes
@@ -155,6 +155,7 @@ WHERE id = $1;
 SELECT 
     bs.id,
     bs.booking_code_id,
+    ut.id AS user_ticket_id,
     bs.market_type,
     bs.market_spec,
     bs.selection,

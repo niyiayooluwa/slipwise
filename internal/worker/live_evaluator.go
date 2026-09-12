@@ -134,7 +134,7 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 
 				if goalCancelled {
 					title, body, img := notification.GetVARMessage(oldMatch.HomeTeam, oldMatch.AwayTeam)
-					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"ticket_id": ps.BookingCodeID.String(), "type": "ticket_update", "image": img})
+					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"ticket_id": ps.UserTicketID.String(), "type": "ticket_update", "image": img})
 					if ps.NotifiedEarlyWin {
 						e.repo.SetEarlyWinNotified(ctx, db.SetEarlyWinNotifiedParams{ID: ps.ID, NotifiedEarlyWin: false})
 					}
@@ -143,13 +143,13 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 
 				if justStarted {
 					title, body, img := notification.GetStartMessage(oldMatch.HomeTeam, oldMatch.AwayTeam)
-					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"ticket_id": ps.BookingCodeID.String(), "type": "ticket_update", "image": img})
+					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"ticket_id": ps.UserTicketID.String(), "type": "ticket_update", "image": img})
 				}
 
 				if justHitHT && !ps.NotifiedHt {
 					status := bettingservice.EvaluateSelection(sel, score)
 					title, body, img := notification.GetHTMessage(oldMatch.HomeTeam, oldMatch.AwayTeam, status)
-					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"ticket_id": ps.BookingCodeID.String(), "type": "ticket_update", "image": img})
+					e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"ticket_id": ps.UserTicketID.String(), "type": "ticket_update", "image": img})
 					e.repo.SetHTNotified(ctx, db.SetHTNotifiedParams{ID: ps.ID, NotifiedHt: true})
 				}
 
@@ -177,7 +177,7 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 							matchDesc := fmt.Sprintf("%s %d-%d %s", oldMatch.HomeTeam, home, away, oldMatch.AwayTeam)
 
 							title, body, img := notification.GetEarlyHitMessage(selDesc, matchDesc)
-							e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"ticket_id": ps.BookingCodeID.String(), "type": "ticket_update", "image": img})
+							e.fcm.SendMulticast(ctx, []string{*ps.FcmToken}, title, body, map[string]string{"ticket_id": ps.UserTicketID.String(), "type": "ticket_update", "image": img})
 							e.repo.SetEarlyWinNotified(ctx, db.SetEarlyWinNotifiedParams{ID: ps.ID, NotifiedEarlyWin: true})
 						}
 					}
@@ -274,14 +274,24 @@ func (e *liveEvaluator) Evaluate(ctx context.Context, matchID uuid.UUID, provide
 
 		// Only queue valid tokens (from the LEFT JOIN)
 		if title != "" && res.FcmToken != nil {
-			msg := pushMsg{Title: title, Body: body, Ticket: res.BookingCodeID.String(), Image: img}
+			msg := pushMsg{Title: title, Body: body, Ticket: res.UserTicketID.String(), Image: img}
 			notifications[msg] = append(notifications[msg], *res.FcmToken)
 		}
 	}
 
 	// Dispatch batched notifications
 	for msg, tokens := range notifications {
-		err := e.fcm.SendMulticast(context.Background(), tokens, msg.Title, msg.Body, map[string]string{
+		// In-memory token deduplication to protect against duplicate device rows
+		tokenSet := make(map[string]bool)
+		var uniqueTokens []string
+		for _, t := range tokens {
+			if !tokenSet[t] {
+				tokenSet[t] = true
+				uniqueTokens = append(uniqueTokens, t)
+			}
+		}
+
+		err := e.fcm.SendMulticast(context.Background(), uniqueTokens, msg.Title, msg.Body, map[string]string{
 			"ticket_id": msg.Ticket,
 			"type":      "ticket_update",
 			"image":     msg.Image,

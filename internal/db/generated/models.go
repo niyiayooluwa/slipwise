@@ -12,13 +12,14 @@ import (
 )
 
 type BookingCode struct {
-	ID        uuid.UUID      `json:"id"`
-	Provider  string         `json:"provider"`
-	Code      string         `json:"code"`
-	Status    string         `json:"status"`
-	TotalOdds pgtype.Numeric `json:"total_odds"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
+	ID             uuid.UUID      `json:"id"`
+	Provider       string         `json:"provider"`
+	Code           string         `json:"code"`
+	Status         string         `json:"status"`
+	TotalOdds      pgtype.Numeric `json:"total_odds"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	NotifiedStatus string         `json:"notified_status"`
 }
 
 type BookingSelection struct {

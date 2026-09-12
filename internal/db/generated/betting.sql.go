@@ -47,7 +47,7 @@ func (q *Queries) CountUserHistory(ctx context.Context, arg CountUserHistoryPara
 const createBookingCode = `-- name: CreateBookingCode :one
 INSERT INTO booking_codes (provider, code, total_odds, status) 
 VALUES ($1, $2, $3, $4)
-RETURNING id, provider, code, status, total_odds, created_at, updated_at
+RETURNING id, provider, code, status, total_odds, created_at, updated_at, notified_status
 `
 
 type CreateBookingCodeParams struct {
@@ -73,6 +73,7 @@ func (q *Queries) CreateBookingCode(ctx context.Context, arg CreateBookingCodePa
 		&i.TotalOdds,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.NotifiedStatus,
 	)
 	return i, err
 }
@@ -307,6 +308,7 @@ const getPendingSelectionsForMatch = `-- name: GetPendingSelectionsForMatch :man
 SELECT 
     bs.id,
     bs.booking_code_id,
+    ut.id AS user_ticket_id,
     bs.market_type,
     bs.market_spec,
     bs.selection,
@@ -325,6 +327,7 @@ WHERE bs.match_id = $1 AND bs.status = 'PENDING'
 type GetPendingSelectionsForMatchRow struct {
 	ID                uuid.UUID `json:"id"`
 	BookingCodeID     uuid.UUID `json:"booking_code_id"`
+	UserTicketID      uuid.UUID `json:"user_ticket_id"`
 	MarketType        string    `json:"market_type"`
 	MarketSpec        *string   `json:"market_spec"`
 	Selection         string    `json:"selection"`
@@ -347,6 +350,7 @@ func (q *Queries) GetPendingSelectionsForMatch(ctx context.Context, matchID uuid
 		if err := rows.Scan(
 			&i.ID,
 			&i.BookingCodeID,
+			&i.UserTicketID,
 			&i.MarketType,
 			&i.MarketSpec,
 			&i.Selection,
@@ -428,7 +432,7 @@ SELECT
 FROM booking_selections bs
 JOIN matches m ON bs.match_id = m.id
 JOIN user_tickets ut ON ut.booking_code_id = bs.booking_code_id
-WHERE ut.id = $1 AND ut.user_id = $2
+WHERE (ut.id = $1 OR ut.booking_code_id = $1) AND ut.user_id = $2
 `
 
 type GetTicketDetailsParams struct {

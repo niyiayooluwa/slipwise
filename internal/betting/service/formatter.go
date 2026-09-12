@@ -55,14 +55,28 @@ func formatSingleMarket(marketType, marketSpec, selection, homeTeam, awayTeam st
 
 	// Then, combine it with the market logic
 	switch marketType {
-	case "MATCH_RESULT", "1ST_HALF_MATCH_RESULT", "2ND_HALF_MATCH_RESULT":
+	case "MATCH_RESULT":
 		if selection == "X" {
 			return "Draw"
 		}
 		return baseSel + " to Win"
+	case "1ST_HALF_MATCH_RESULT":
+		if selection == "X" {
+			return "Draw (1st Half)"
+		}
+		return baseSel + " to Win 1st Half"
+	case "2ND_HALF_MATCH_RESULT":
+		if selection == "X" {
+			return "Draw (2nd Half)"
+		}
+		return baseSel + " to Win 2nd Half"
 
-	case "DOUBLE_CHANCE", "1ST_HALF_DOUBLE_CHANCE", "2ND_HALF_DOUBLE_CHANCE":
+	case "DOUBLE_CHANCE":
 		return baseSel
+	case "1ST_HALF_DOUBLE_CHANCE":
+		return baseSel + " (1st Half)"
+	case "2ND_HALF_DOUBLE_CHANCE":
+		return baseSel + " (2nd Half)"
 
 	case "DRAW_NO_BET", "HOME_NO_BET", "AWAY_NO_BET":
 		if selection == "X" {
@@ -70,9 +84,15 @@ func formatSingleMarket(marketType, marketSpec, selection, homeTeam, awayTeam st
 		}
 		return baseSel + " to Win (DNB)"
 
-	case "OVER_UNDER", "1ST_HALF_OVER_UNDER", "2ND_HALF_OVER_UNDER":
+	case "OVER_UNDER":
 		spec := parseSpecifierTotal(marketSpec)
 		return baseSel + " " + spec + " Goals"
+	case "1ST_HALF_OVER_UNDER":
+		spec := parseSpecifierTotal(marketSpec)
+		return "1st Half " + baseSel + " " + spec + " Goals"
+	case "2ND_HALF_OVER_UNDER":
+		spec := parseSpecifierTotal(marketSpec)
+		return "2nd Half " + baseSel + " " + spec + " Goals"
 
 	case "HOME_OVER_UNDER":
 		spec := parseSpecifierTotal(marketSpec)
@@ -82,15 +102,59 @@ func formatSingleMarket(marketType, marketSpec, selection, homeTeam, awayTeam st
 		spec := parseSpecifierTotal(marketSpec)
 		return awayTeam + " " + baseSel + " " + spec + " Goals"
 
+	case "HOME_OR_OVER":
+		spec := parseSpecifierTotal(marketSpec)
+		return homeTeam + " to Win or Over " + spec + " Goals"
+	case "AWAY_OR_OVER":
+		spec := parseSpecifierTotal(marketSpec)
+		return awayTeam + " to Win or Over " + spec + " Goals"
+	case "DRAW_OR_OVER":
+		spec := parseSpecifierTotal(marketSpec)
+		return "Draw or Over " + spec + " Goals"
+
+	case "HOME_OR_UNDER":
+		spec := parseSpecifierTotal(marketSpec)
+		return homeTeam + " to Win or Under " + spec + " Goals"
+	case "AWAY_OR_UNDER":
+		spec := parseSpecifierTotal(marketSpec)
+		return awayTeam + " to Win or Under " + spec + " Goals"
+	case "DRAW_OR_UNDER":
+		spec := parseSpecifierTotal(marketSpec)
+		return "Draw or Under " + spec + " Goals"
+
+	case "HOME_OR_GG":
+		return homeTeam + " to Win or Both Teams to Score"
+	case "AWAY_OR_GG":
+		return awayTeam + " to Win or Both Teams to Score"
+	case "DRAW_OR_GG":
+		return "Draw or Both Teams to Score"
+
+	case "HOME_OR_CLEAN_SHEET":
+		return homeTeam + " to Win or Clean Sheet"
+	case "AWAY_OR_CLEAN_SHEET":
+		return awayTeam + " to Win or Clean Sheet"
+	case "DRAW_OR_CLEAN_SHEET":
+		return "Draw or Clean Sheet"
+
 	case "ASIAN_OVER_UNDER", "ASIAN_HANDICAP", "HANDICAP":
 		spec := parseSpecifierTotal(marketSpec)
 		return baseSel + " (" + spec + ")"
 
-	case "BTTS", "1ST_HALF_BTTS", "2ND_HALF_BTTS":
+	case "BTTS":
 		if selection == "YES" {
 			return "Both Teams to Score"
 		}
 		return "Both Teams to Score: No"
+	case "1ST_HALF_BTTS":
+		if selection == "YES" {
+			return "Both Teams to Score in 1st Half"
+		}
+		return "Both Teams to Score in 1st Half: No"
+	case "2ND_HALF_BTTS":
+		if selection == "YES" {
+			return "Both Teams to Score in 2nd Half"
+		}
+		return "Both Teams to Score in 2nd Half: No"
 
 	case "CORRECT_SCORE":
 		return "Correct Score: " + selection
@@ -122,8 +186,20 @@ func formatSingleMarket(marketType, marketSpec, selection, homeTeam, awayTeam st
 		return "Unknown Market (" + selection + ")"
 	}
 
-	// Fallback for missing mapping
-	return marketType + ": " + baseSel
+	// Fallback for unmapped markets: strip underscores, clean title case
+	words := strings.Split(strings.ReplaceAll(marketType, "_", " "), " ")
+	for i, w := range words {
+		if len(w) > 0 {
+			words[i] = strings.ToUpper(w[:1]) + strings.ToLower(w[1:])
+		}
+	}
+	cleanedMarket := strings.Join(words, " ")
+	if baseSel != "" && baseSel != selection {
+		return cleanedMarket + ": " + baseSel
+	} else if baseSel != "" {
+		return cleanedMarket + " (" + baseSel + ")"
+	}
+	return cleanedMarket
 }
 
 func parseSpecifierTotal(spec string) string {

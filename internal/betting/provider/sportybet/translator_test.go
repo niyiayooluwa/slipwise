@@ -196,3 +196,33 @@ func TestFetchAndParse_InvalidJSON(t *testing.T) {
 		t.Fatalf("expected error, got nil")
 	}
 }
+
+func TestMapMarketType_HalfVariations(t *testing.T) {
+	home := "Arsenal"
+	away := "Chelsea"
+
+	tests := []struct {
+		desc     string
+		expected string
+	}{
+		{"1st Half - Over/Under", "1ST_HALF_OVER_UNDER"},
+		{"First Half - Over/Under", "1ST_HALF_OVER_UNDER"},
+		{"1st Half - Total", "1ST_HALF_OVER_UNDER"},
+		{"1st Half - 1X2", "1ST_HALF_MATCH_RESULT"},
+		{"2nd Half - Over/Under", "2ND_HALF_OVER_UNDER"},
+		{"Second Half - Over/Under", "2ND_HALF_OVER_UNDER"},
+		{"2nd Half - 1X2", "2ND_HALF_MATCH_RESULT"},
+		{"1st Half - GG/NG", "1ST_HALF_BTTS"},
+		{"Chelsea or Over", "AWAY_OR_OVER"},
+		{"Arsenal or Over", "HOME_OR_OVER"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			got := MapMarketType(tt.desc, home, away)
+			if got != tt.expected {
+				t.Errorf("MapMarketType(%q) = %q, want %q", tt.desc, got, tt.expected)
+			}
+		})
+	}
+}

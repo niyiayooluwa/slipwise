@@ -253,20 +253,34 @@ func mapBaseMarket(desc, homeTeam, awayTeam string) string {
 	}
 
 	prefix := ""
-	if strings.Contains(desc, "1st half") || strings.Contains(desc, "halftime") {
+	if strings.Contains(lowerDesc, "1st half") || strings.Contains(lowerDesc, "first half") ||
+		strings.Contains(lowerDesc, "halftime") || strings.Contains(lowerDesc, "half time") ||
+		strings.HasPrefix(lowerDesc, "ht ") || strings.Contains(lowerDesc, " - ht") ||
+		strings.HasPrefix(lowerDesc, "ht -") {
 		prefix = "1ST_HALF_"
-	} else if strings.Contains(desc, "2nd half") {
+	} else if strings.Contains(lowerDesc, "2nd half") || strings.Contains(lowerDesc, "second half") {
 		prefix = "2ND_HALF_"
 	}
 
 	// Stripping prefixes to make base matching clean
-	cleanDesc := strings.ReplaceAll(desc, "1st half - ", "")
+	cleanDesc := lowerDesc
+	cleanDesc = strings.ReplaceAll(cleanDesc, "1st half - ", "")
 	cleanDesc = strings.ReplaceAll(cleanDesc, "1st half ", "")
 	cleanDesc = strings.ReplaceAll(cleanDesc, "1st half", "")
+	cleanDesc = strings.ReplaceAll(cleanDesc, "first half - ", "")
+	cleanDesc = strings.ReplaceAll(cleanDesc, "first half ", "")
+	cleanDesc = strings.ReplaceAll(cleanDesc, "first half", "")
 	cleanDesc = strings.ReplaceAll(cleanDesc, "2nd half - ", "")
 	cleanDesc = strings.ReplaceAll(cleanDesc, "2nd half ", "")
 	cleanDesc = strings.ReplaceAll(cleanDesc, "2nd half", "")
+	cleanDesc = strings.ReplaceAll(cleanDesc, "second half - ", "")
+	cleanDesc = strings.ReplaceAll(cleanDesc, "second half ", "")
+	cleanDesc = strings.ReplaceAll(cleanDesc, "second half", "")
 	cleanDesc = strings.ReplaceAll(cleanDesc, "halftime", "")
+	cleanDesc = strings.ReplaceAll(cleanDesc, "half time", "")
+	cleanDesc = strings.ReplaceAll(cleanDesc, "ht - ", "")
+	cleanDesc = strings.ReplaceAll(cleanDesc, "ht ", "")
+	cleanDesc = strings.TrimSpace(cleanDesc)
 
 	// Precompute lowercase team names for robust mapping
 	homeStr := strings.ToLower(homeTeam)
@@ -279,7 +293,7 @@ func mapBaseMarket(desc, homeTeam, awayTeam string) string {
 		base = "ASIAN_OVER_UNDER"
 	} else if strings.Contains(cleanDesc, "asian handicap") {
 		base = "ASIAN_HANDICAP"
-	} else if strings.Contains(cleanDesc, "over/under") || strings.Contains(cleanDesc, "over / under") || strings.Contains(cleanDesc, "o/u") {
+	} else if strings.Contains(cleanDesc, "over/under") || strings.Contains(cleanDesc, "over / under") || strings.Contains(cleanDesc, "o/u") || cleanDesc == "total" || strings.HasPrefix(cleanDesc, "total ") || strings.HasSuffix(cleanDesc, " total") {
 		// Use explicit home/away strings or match against the exact team names to map it securely
 		if strings.Contains(cleanDesc, "home") || (homeStr != "" && strings.Contains(cleanDesc, homeStr)) {
 			base = "HOME_OVER_UNDER"

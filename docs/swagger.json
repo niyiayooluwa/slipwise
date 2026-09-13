@@ -863,6 +863,12 @@
                         "description": "Delta sync timestamp (RFC3339). Returns only tickets updated after this time.",
                         "name": "since",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by archived status (default false)",
+                        "name": "archived",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -880,6 +886,183 @@
                     },
                     "500": {
                         "description": "Database retrieval error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/tickets/archive": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Archives one or more tracked tickets, hiding them from the active dashboard into the archive.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tickets"
+                ],
+                "summary": "Bulk archive tracked tickets",
+                "parameters": [
+                    {
+                        "description": "List of ticket UUIDs to archive",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.BulkTicketActionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Tickets archived successfully",
+                        "schema": {
+                            "$ref": "#/definitions/model.BulkTicketActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request payload or UUID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Database update error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/tickets/archived": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetches the user's archived tickets with pagination, status filtering, and delta syncs.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tickets"
+                ],
+                "summary": "Get archived ticket history",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page (default 20, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status (PENDING, WON, LOST)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Delta sync timestamp (RFC3339)",
+                        "name": "since",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated archived history list",
+                        "schema": {
+                            "$ref": "#/definitions/model.PaginatedHistoryResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - missing or invalid token",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Database retrieval error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/tickets/delete": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Soft-deletes one or more tracked tickets, hiding them from the user while preserving accounting stats.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tickets"
+                ],
+                "summary": "Bulk soft-delete tracked tickets",
+                "parameters": [
+                    {
+                        "description": "List of ticket UUIDs to delete",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.BulkTicketActionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Tickets deleted successfully",
+                        "schema": {
+                            "$ref": "#/definitions/model.BulkTicketActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request payload or UUID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Database update error",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -983,6 +1166,63 @@
                     },
                     "500": {
                         "description": "Database insertion error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/tickets/unarchive": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Restores one or more archived tickets back to the active dashboard.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tickets"
+                ],
+                "summary": "Bulk unarchive tracked tickets",
+                "parameters": [
+                    {
+                        "description": "List of ticket UUIDs to unarchive",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.BulkTicketActionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Tickets unarchived successfully",
+                        "schema": {
+                            "$ref": "#/definitions/model.BulkTicketActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request payload or UUID",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Database update error",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -1468,6 +1708,33 @@
                 },
                 "username": {
                     "type": "string"
+                }
+            }
+        },
+        "model.BulkTicketActionRequest": {
+            "type": "object",
+            "properties": {
+                "ticket_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"3fa85f64-5717-4562-b3fc-2c963f66afa6\"]"
+                    ]
+                }
+            }
+        },
+        "model.BulkTicketActionResponse": {
+            "type": "object",
+            "properties": {
+                "affected": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "message": {
+                    "type": "string",
+                    "example": "tickets archived successfully"
                 }
             }
         },

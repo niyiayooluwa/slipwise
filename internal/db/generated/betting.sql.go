@@ -13,6 +13,70 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const bulkArchiveUserTickets = `-- name: BulkArchiveUserTickets :execrows
+UPDATE user_tickets
+SET is_archived = true,
+    archived_at = NOW()
+WHERE user_id = $1
+  AND id = ANY($2::uuid[])
+  AND deleted_at IS NULL
+`
+
+type BulkArchiveUserTicketsParams struct {
+	UserID    uuid.UUID   `json:"user_id"`
+	TicketIds []uuid.UUID `json:"ticket_ids"`
+}
+
+func (q *Queries) BulkArchiveUserTickets(ctx context.Context, arg BulkArchiveUserTicketsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, bulkArchiveUserTickets, arg.UserID, arg.TicketIds)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const bulkSoftDeleteUserTickets = `-- name: BulkSoftDeleteUserTickets :execrows
+UPDATE user_tickets
+SET deleted_at = NOW()
+WHERE user_id = $1
+  AND id = ANY($2::uuid[])
+`
+
+type BulkSoftDeleteUserTicketsParams struct {
+	UserID    uuid.UUID   `json:"user_id"`
+	TicketIds []uuid.UUID `json:"ticket_ids"`
+}
+
+func (q *Queries) BulkSoftDeleteUserTickets(ctx context.Context, arg BulkSoftDeleteUserTicketsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, bulkSoftDeleteUserTickets, arg.UserID, arg.TicketIds)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const bulkUnarchiveUserTickets = `-- name: BulkUnarchiveUserTickets :execrows
+UPDATE user_tickets
+SET is_archived = false,
+    archived_at = NULL
+WHERE user_id = $1
+  AND id = ANY($2::uuid[])
+  AND deleted_at IS NULL
+`
+
+type BulkUnarchiveUserTicketsParams struct {
+	UserID    uuid.UUID   `json:"user_id"`
+	TicketIds []uuid.UUID `json:"ticket_ids"`
+}
+
+func (q *Queries) BulkUnarchiveUserTickets(ctx context.Context, arg BulkUnarchiveUserTicketsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, bulkUnarchiveUserTickets, arg.UserID, arg.TicketIds)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const cleanupOrphanedBookingCodes = `-- name: CleanupOrphanedBookingCodes :exec
 DELETE FROM booking_codes
 WHERE id NOT IN (SELECT booking_code_id FROM user_tickets)
@@ -29,16 +93,19 @@ SELECT COUNT(*)
 FROM user_tickets ut
 JOIN booking_codes bc ON ut.booking_code_id = bc.id
 WHERE ut.user_id = $1
-  AND ($2::text IS NULL OR bc.status = $2::text)
+  AND ut.deleted_at IS NULL
+  AND ut.is_archived = COALESCE($2::boolean, false)
+  AND ($3::text IS NULL OR bc.status = $3::text)
 `
 
 type CountUserHistoryParams struct {
-	UserID uuid.UUID `json:"user_id"`
-	Status *string   `json:"status"`
+	UserID     uuid.UUID   `json:"user_id"`
+	IsArchived pgtype.Bool `json:"is_archived"`
+	Status     *string     `json:"status"`
 }
 
 func (q *Queries) CountUserHistory(ctx context.Context, arg CountUserHistoryParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countUserHistory, arg.UserID, arg.Status)
+	row := q.db.QueryRow(ctx, countUserHistory, arg.UserID, arg.IsArchived, arg.Status)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -162,7 +229,7 @@ func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (Match
 
 const createUserTicket = `-- name: CreateUserTicket :one
 INSERT INTO user_tickets (user_id, booking_code_id, stake, description) 
-VALUES ($1, $2, $3, $4) RETURNING id, user_id, booking_code_id, stake, created_at, description
+VALUES ($1, $2, $3, $4) RETURNING id, user_id, booking_code_id, stake, created_at, description, is_archived, archived_at, deleted_at
 `
 
 type CreateUserTicketParams struct {
@@ -187,12 +254,16 @@ func (q *Queries) CreateUserTicket(ctx context.Context, arg CreateUserTicketPara
 		&i.Stake,
 		&i.CreatedAt,
 		&i.Description,
+		&i.IsArchived,
+		&i.ArchivedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const deleteUserTicket = `-- name: DeleteUserTicket :exec
-DELETE FROM user_tickets 
+UPDATE user_tickets 
+SET deleted_at = NOW()
 WHERE id = $1 AND user_id = $2
 `
 
@@ -321,7 +392,10 @@ FROM booking_selections bs
 JOIN booking_codes bc ON bs.booking_code_id = bc.id
 JOIN user_tickets ut ON bc.id = ut.booking_code_id
 LEFT JOIN user_devices ud ON ut.user_id = ud.user_id
-WHERE bs.match_id = $1 AND bs.status = 'PENDING'
+WHERE bs.match_id = $1 
+  AND bs.status = 'PENDING'
+  AND ut.is_archived = false
+  AND ut.deleted_at IS NULL
 `
 
 type GetPendingSelectionsForMatchRow struct {
@@ -517,18 +591,21 @@ LEFT JOIN LATERAL (
     WHERE booking_code_id = bc.id
 ) bs_stats ON true
 WHERE ut.user_id = $1
-  AND ($4::text IS NULL OR bc.status = $4::text)
-  AND ($5::timestamptz IS NULL OR bc.updated_at > $5::timestamptz)
+  AND ut.deleted_at IS NULL
+  AND ut.is_archived = COALESCE($4::boolean, false)
+  AND ($5::text IS NULL OR bc.status = $5::text)
+  AND ($6::timestamptz IS NULL OR bc.updated_at > $6::timestamptz)
 ORDER BY ut.created_at DESC
 LIMIT $2 OFFSET $3
 `
 
 type GetUserHistoryParams struct {
-	UserID uuid.UUID  `json:"user_id"`
-	Limit  int32      `json:"limit"`
-	Offset int32      `json:"offset"`
-	Status *string    `json:"status"`
-	Since  *time.Time `json:"since"`
+	UserID     uuid.UUID   `json:"user_id"`
+	Limit      int32       `json:"limit"`
+	Offset     int32       `json:"offset"`
+	IsArchived pgtype.Bool `json:"is_archived"`
+	Status     *string     `json:"status"`
+	Since      *time.Time  `json:"since"`
 }
 
 type GetUserHistoryRow struct {
@@ -552,6 +629,7 @@ func (q *Queries) GetUserHistory(ctx context.Context, arg GetUserHistoryParams) 
 		arg.UserID,
 		arg.Limit,
 		arg.Offset,
+		arg.IsArchived,
 		arg.Status,
 		arg.Since,
 	)
@@ -695,7 +773,7 @@ UPDATE user_tickets
 SET stake = COALESCE($3, stake),
     description = COALESCE($4, description)
 WHERE id = $1 AND user_id = $2
-RETURNING id, user_id, booking_code_id, stake, created_at, description
+RETURNING id, user_id, booking_code_id, stake, created_at, description, is_archived, archived_at, deleted_at
 `
 
 type UpdateUserTicketParams struct {
@@ -720,6 +798,9 @@ func (q *Queries) UpdateUserTicket(ctx context.Context, arg UpdateUserTicketPara
 		&i.Stake,
 		&i.CreatedAt,
 		&i.Description,
+		&i.IsArchived,
+		&i.ArchivedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -727,7 +808,7 @@ func (q *Queries) UpdateUserTicket(ctx context.Context, arg UpdateUserTicketPara
 const upsertUserTrack = `-- name: UpsertUserTrack :one
 INSERT INTO user_tickets (user_id, booking_code_id, stake, description) 
 VALUES ($1, $2, $3, $4)
-RETURNING id, user_id, booking_code_id, stake, created_at, description
+RETURNING id, user_id, booking_code_id, stake, created_at, description, is_archived, archived_at, deleted_at
 `
 
 type UpsertUserTrackParams struct {
@@ -752,6 +833,9 @@ func (q *Queries) UpsertUserTrack(ctx context.Context, arg UpsertUserTrackParams
 		&i.Stake,
 		&i.CreatedAt,
 		&i.Description,
+		&i.IsArchived,
+		&i.ArchivedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }

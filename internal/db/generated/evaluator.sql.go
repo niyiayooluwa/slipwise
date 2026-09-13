@@ -70,6 +70,8 @@ SELECT
 FROM new_state ns
 JOIN updated_tickets ut ON ut.id = ns.booking_code_id
 JOIN user_tickets tkt ON tkt.booking_code_id = ns.booking_code_id
+  AND tkt.is_archived = false
+  AND tkt.deleted_at IS NULL
 LEFT JOIN user_devices ud ON ud.user_id = tkt.user_id
 `
 

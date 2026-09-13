@@ -3,9 +3,12 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"slipwise/internal/betting/domain"
 	db "slipwise/internal/db/generated"
@@ -27,6 +30,9 @@ type Repository interface {
 	CountUserHistory(ctx context.Context, arg db.CountUserHistoryParams) (int64, error)
 	GetTicketDetails(ctx context.Context, arg db.GetTicketDetailsParams) ([]db.GetTicketDetailsRow, error)
 	DeleteUserTicket(ctx context.Context, arg db.DeleteUserTicketParams) error
+	BulkArchiveUserTickets(ctx context.Context, userID uuid.UUID, ticketIDs []uuid.UUID) (int64, error)
+	BulkUnarchiveUserTickets(ctx context.Context, userID uuid.UUID, ticketIDs []uuid.UUID) (int64, error)
+	BulkSoftDeleteUserTickets(ctx context.Context, userID uuid.UUID, ticketIDs []uuid.UUID) (int64, error)
 	UpdateUserTicket(ctx context.Context, arg db.UpdateUserTicketParams) (db.UserTicket, error)
 	CleanupOrphanedBookingCodes(ctx context.Context) error
 }
@@ -85,33 +91,78 @@ func (s *BettingService) GetUserStats(ctx context.Context, userID uuid.UUID) (db
 	return s.repo.GetUserStats(ctx, userID)
 }
 
-// GetHistory fetches the user's tracked tickets with pagination, optional status filter, and optional delta sync timestamp.
-func (s *BettingService) GetHistory(ctx context.Context, userID uuid.UUID, limit, offset int32, status string, since *time.Time) ([]db.GetUserHistoryRow, int64, error) {
+// GetHistory fetches the user's tracked tickets with pagination, optional status filter, delta sync timestamp, and archive filter.
+func (s *BettingService) GetHistory(ctx context.Context, userID uuid.UUID, limit, offset int32, status string, since *time.Time, isArchived bool) ([]db.GetUserHistoryRow, int64, error) {
 	var statusArg *string
 	if status != "" {
 		statusArg = &status
 	}
 
 	rows, err := s.repo.GetUserHistory(ctx, db.GetUserHistoryParams{
-		UserID: userID,
-		Status: statusArg,
-		Limit:  limit,
-		Offset: offset,
-		Since:  since,
+		UserID:     userID,
+		Limit:      limit,
+		Offset:     offset,
+		IsArchived: pgtype.Bool{Bool: isArchived, Valid: true},
+		Status:     statusArg,
+		Since:      since,
 	})
 	if err != nil {
 		return nil, 0, err
 	}
 
 	total, err := s.repo.CountUserHistory(ctx, db.CountUserHistoryParams{
-		UserID: userID,
-		Status: statusArg,
+		UserID:     userID,
+		IsArchived: pgtype.Bool{Bool: isArchived, Valid: true},
+		Status:     statusArg,
 	})
 	if err != nil {
 		return nil, 0, err
 	}
 
 	return rows, total, nil
+}
+
+// parseUUIDs validates and converts raw string ticket IDs into UUIDs.
+func parseUUIDs(rawIDs []string) ([]uuid.UUID, error) {
+	if len(rawIDs) == 0 {
+		return nil, errors.New("no ticket IDs provided")
+	}
+	res := make([]uuid.UUID, 0, len(rawIDs))
+	for _, idStr := range rawIDs {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ticket ID: %s", idStr)
+		}
+		res = append(res, id)
+	}
+	return res, nil
+}
+
+// BulkArchiveTickets archives the specified tickets for the user.
+func (s *BettingService) BulkArchiveTickets(ctx context.Context, userID uuid.UUID, rawIDs []string) (int64, error) {
+	ids, err := parseUUIDs(rawIDs)
+	if err != nil {
+		return 0, err
+	}
+	return s.repo.BulkArchiveUserTickets(ctx, userID, ids)
+}
+
+// BulkUnarchiveTickets unarchives/restores the specified tickets for the user.
+func (s *BettingService) BulkUnarchiveTickets(ctx context.Context, userID uuid.UUID, rawIDs []string) (int64, error) {
+	ids, err := parseUUIDs(rawIDs)
+	if err != nil {
+		return 0, err
+	}
+	return s.repo.BulkUnarchiveUserTickets(ctx, userID, ids)
+}
+
+// BulkDeleteTickets soft-deletes the specified tickets for the user without corrupting stats.
+func (s *BettingService) BulkDeleteTickets(ctx context.Context, userID uuid.UUID, rawIDs []string) (int64, error) {
+	ids, err := parseUUIDs(rawIDs)
+	if err != nil {
+		return 0, err
+	}
+	return s.repo.BulkSoftDeleteUserTickets(ctx, userID, ids)
 }
 
 // UpdateTicket updates a tracked ticket's description or stake.
@@ -124,7 +175,7 @@ func (s *BettingService) GetTicketDetails(ctx context.Context, arg db.GetTicketD
 	return s.repo.GetTicketDetails(ctx, arg)
 }
 
-// DeleteTicket removes the link between a user and a ticket.
+// DeleteTicket soft-deletes a single ticket for the user.
 func (s *BettingService) DeleteTicket(ctx context.Context, arg db.DeleteUserTicketParams) error {
 	return s.repo.DeleteUserTicket(ctx, arg)
 }

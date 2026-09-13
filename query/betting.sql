@@ -46,8 +46,31 @@ WHERE match_id = $2
 RETURNING booking_code_id;
 
 -- name: DeleteUserTicket :exec
-DELETE FROM user_tickets 
+UPDATE user_tickets 
+SET deleted_at = NOW()
 WHERE id = $1 AND user_id = $2;
+
+-- name: BulkArchiveUserTickets :execrows
+UPDATE user_tickets
+SET is_archived = true,
+    archived_at = NOW()
+WHERE user_id = $1
+  AND id = ANY(@ticket_ids::uuid[])
+  AND deleted_at IS NULL;
+
+-- name: BulkUnarchiveUserTickets :execrows
+UPDATE user_tickets
+SET is_archived = false,
+    archived_at = NULL
+WHERE user_id = $1
+  AND id = ANY(@ticket_ids::uuid[])
+  AND deleted_at IS NULL;
+
+-- name: BulkSoftDeleteUserTickets :execrows
+UPDATE user_tickets
+SET deleted_at = NOW()
+WHERE user_id = $1
+  AND id = ANY(@ticket_ids::uuid[]);
 
 -- name: GetUserHistory :many
 SELECT 
@@ -76,6 +99,8 @@ LEFT JOIN LATERAL (
     WHERE booking_code_id = bc.id
 ) bs_stats ON true
 WHERE ut.user_id = $1
+  AND ut.deleted_at IS NULL
+  AND ut.is_archived = COALESCE(sqlc.narg('is_archived')::boolean, false)
   AND (sqlc.narg('status')::text IS NULL OR bc.status = sqlc.narg('status')::text)
   AND (sqlc.narg('since')::timestamptz IS NULL OR bc.updated_at > sqlc.narg('since')::timestamptz)
 ORDER BY ut.created_at DESC
@@ -86,6 +111,8 @@ SELECT COUNT(*)
 FROM user_tickets ut
 JOIN booking_codes bc ON ut.booking_code_id = bc.id
 WHERE ut.user_id = $1
+  AND ut.deleted_at IS NULL
+  AND ut.is_archived = COALESCE(sqlc.narg('is_archived')::boolean, false)
   AND (sqlc.narg('status')::text IS NULL OR bc.status = sqlc.narg('status')::text);
 
 -- name: UpdateUserTicket :one
@@ -168,4 +195,7 @@ FROM booking_selections bs
 JOIN booking_codes bc ON bs.booking_code_id = bc.id
 JOIN user_tickets ut ON bc.id = ut.booking_code_id
 LEFT JOIN user_devices ud ON ut.user_id = ud.user_id
-WHERE bs.match_id = $1 AND bs.status = 'PENDING';
+WHERE bs.match_id = $1 
+  AND bs.status = 'PENDING'
+  AND ut.is_archived = false
+  AND ut.deleted_at IS NULL;

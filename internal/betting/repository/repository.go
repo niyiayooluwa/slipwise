@@ -105,6 +105,27 @@ func (r *Repository) DeleteUserTicket(ctx context.Context, arg db.DeleteUserTick
 	return r.queries.DeleteUserTicket(ctx, arg)
 }
 
+func (r *Repository) BulkArchiveUserTickets(ctx context.Context, userID uuid.UUID, ticketIDs []uuid.UUID) (int64, error) {
+	return r.queries.BulkArchiveUserTickets(ctx, db.BulkArchiveUserTicketsParams{
+		UserID:    userID,
+		TicketIds: ticketIDs,
+	})
+}
+
+func (r *Repository) BulkUnarchiveUserTickets(ctx context.Context, userID uuid.UUID, ticketIDs []uuid.UUID) (int64, error) {
+	return r.queries.BulkUnarchiveUserTickets(ctx, db.BulkUnarchiveUserTicketsParams{
+		UserID:    userID,
+		TicketIds: ticketIDs,
+	})
+}
+
+func (r *Repository) BulkSoftDeleteUserTickets(ctx context.Context, userID uuid.UUID, ticketIDs []uuid.UUID) (int64, error) {
+	return r.queries.BulkSoftDeleteUserTickets(ctx, db.BulkSoftDeleteUserTicketsParams{
+		UserID:    userID,
+		TicketIds: ticketIDs,
+	})
+}
+
 func (r *Repository) GetUserHistory(ctx context.Context, arg db.GetUserHistoryParams) ([]db.GetUserHistoryRow, error) {
 	return r.queries.GetUserHistory(ctx, arg)
 }

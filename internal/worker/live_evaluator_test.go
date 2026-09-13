@@ -113,6 +113,18 @@ func TestLiveEvaluator_NotificationScenarios(t *testing.T) {
 			},
 			expectNotification: false,
 		},
+		{
+			name: "Archived or Deleted Ticket (Muted / No notification)",
+			stats: db.EvaluateTicketsRow{
+				TicketStatus:  "WON",
+				TotalLegs:     5,
+				WonLegs:       5,
+				BookingCodeID: uuid.New(),
+				UserTicketID:  uuid.New(),
+				FcmToken:      nil, // Evaluator quiet guard excludes archived/deleted tokens
+			},
+			expectNotification: false,
+		},
 	}
 
 	for _, tt := range tests {

@@ -12,6 +12,9 @@ import (
 )
 
 type Querier interface {
+	BulkArchiveUserTickets(ctx context.Context, arg BulkArchiveUserTicketsParams) (int64, error)
+	BulkSoftDeleteUserTickets(ctx context.Context, arg BulkSoftDeleteUserTicketsParams) (int64, error)
+	BulkUnarchiveUserTickets(ctx context.Context, arg BulkUnarchiveUserTicketsParams) (int64, error)
 	CheckUsernameExists(ctx context.Context, username pgtype.Text) (bool, error)
 	CleanupOrphanedBookingCodes(ctx context.Context) error
 	CountUserHistory(ctx context.Context, arg CountUserHistoryParams) (int64, error)

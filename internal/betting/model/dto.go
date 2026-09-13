@@ -108,3 +108,14 @@ type UserStatsResponse struct {
 	TotalReturns   float64 `json:"total_returns"`
 	NetProfit      float64 `json:"net_profit"`
 }
+
+// BulkTicketActionRequest is the payload for batch archiving, unarchiving, and soft-deleting tickets.
+type BulkTicketActionRequest struct {
+	TicketIDs []string `json:"ticket_ids" example:"[\"3fa85f64-5717-4562-b3fc-2c963f66afa6\"]"`
+}
+
+// BulkTicketActionResponse returns the number of affected tickets from a bulk operation.
+type BulkTicketActionResponse struct {
+	Affected int64  `json:"affected" example:"3"`
+	Message  string `json:"message" example:"tickets archived successfully"`
+}

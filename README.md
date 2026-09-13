@@ -324,10 +324,14 @@ The server exposes standard RESTful endpoints under `/auth` and `/v1`. Most `/v1
 | :--- | :--- | :--- | :---: |
 | `POST` | `/v1/tickets/preview` | Ingest booking code and return normalized match breakdown without saving | Bearer |
 | `POST` | `/v1/tickets/track` | Save booking code to user's tracked slips and start monitoring | Bearer |
-| `GET` | `/v1/tickets` | List user's tracked tickets (supports pagination and status filtering) | Bearer |
+| `GET` | `/v1/tickets` | List user's active tracked tickets (paginated, status filter, delta syncs) | Bearer |
+| `GET` | `/v1/tickets/archived` | List user's archived tickets (paginated, status filter, delta syncs) | Bearer |
+| `POST` | `/v1/tickets/archive` | Bulk archive tickets by UUIDs, hiding from active feed & muting notifications | Bearer |
+| `POST` | `/v1/tickets/unarchive` | Bulk restore archived tickets back to active dashboard | Bearer |
+| `POST` | `/v1/tickets/delete` | Bulk soft-delete tickets while preserving immutable accounting & stats | Bearer |
 | `GET` | `/v1/tickets/:id` | Get detailed breakdown of a ticket and all selection legs | Bearer |
 | `PATCH` | `/v1/tickets/:id` | Edit ticket metadata (e.g., custom label or notes) | Bearer |
-| `DELETE` | `/v1/tickets/:id` | Untrack/remove ticket from user's active slips | Bearer |
+| `DELETE` | `/v1/tickets/:id` | Soft-delete single ticket (hides from feed, mutes alerts, preserves stats) | Bearer |
 
 #### Preview Ticket Request Example
 

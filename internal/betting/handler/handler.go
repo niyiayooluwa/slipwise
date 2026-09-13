@@ -135,12 +135,35 @@ func (h *BettingHandler) Track(c *echo.Context) error {
 // @Param        limit query int false "Items per page (default 20, max 100)"
 // @Param        status query string false "Filter by status (PENDING, WON, LOST)"
 // @Param        since query string false "Delta sync timestamp (RFC3339). Returns only tickets updated after this time."
+// @Param        archived query bool false "Filter by archived status (default false)"
 // @Success      200 {object} model.PaginatedHistoryResponse "Paginated history list"
 // @Failure      401 {object} apitypes.ErrorResponse "Unauthorized - missing or invalid token"
 // @Failure      500 {object} apitypes.ErrorResponse "Database retrieval error"
 // @Security     BearerAuth
 // @Router       /v1/tickets [get]
 func (h *BettingHandler) GetHistory(c *echo.Context) error {
+	return h.fetchHistory(c, c.QueryParam("archived") == "true")
+}
+
+// GetArchivedHistory godoc
+// @Summary      Get archived ticket history
+// @Description  Fetches the user's archived tickets with pagination, status filtering, and delta syncs.
+// @Tags         tickets
+// @Produce      json
+// @Param        page query int false "Page number (default 1)"
+// @Param        limit query int false "Items per page (default 20, max 100)"
+// @Param        status query string false "Filter by status (PENDING, WON, LOST)"
+// @Param        since query string false "Delta sync timestamp (RFC3339)"
+// @Success      200 {object} model.PaginatedHistoryResponse "Paginated archived history list"
+// @Failure      401 {object} apitypes.ErrorResponse "Unauthorized - missing or invalid token"
+// @Failure      500 {object} apitypes.ErrorResponse "Database retrieval error"
+// @Security     BearerAuth
+// @Router       /v1/tickets/archived [get]
+func (h *BettingHandler) GetArchivedHistory(c *echo.Context) error {
+	return h.fetchHistory(c, true)
+}
+
+func (h *BettingHandler) fetchHistory(c *echo.Context, isArchived bool) error {
 	userID, ok := c.Get("user_id").(uuid.UUID)
 	if !ok || userID == uuid.Nil {
 		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
@@ -166,7 +189,7 @@ func (h *BettingHandler) GetHistory(c *echo.Context) error {
 		}
 	}
 
-	history, total, err := h.svc.GetHistory(c.Request().Context(), userID, int32(limit), int32(offset), status, sincePtr)
+	history, total, err := h.svc.GetHistory(c.Request().Context(), userID, int32(limit), int32(offset), status, sincePtr, isArchived)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, apitypes.ErrorResponse{Error: err.Error()})
 	}
@@ -291,6 +314,111 @@ func (h *BettingHandler) GetTicketDetails(c *echo.Context) error {
 	return c.JSON(http.StatusOK, model.TicketDetailsResponse{
 		Summary:    summary,
 		Selections: selections,
+	})
+}
+
+// BulkArchive godoc
+// @Summary      Bulk archive tracked tickets
+// @Description  Archives one or more tracked tickets, hiding them from the active dashboard into the archive.
+// @Tags         tickets
+// @Accept       json
+// @Produce      json
+// @Param        request body model.BulkTicketActionRequest true "List of ticket UUIDs to archive"
+// @Success      200 {object} model.BulkTicketActionResponse "Tickets archived successfully"
+// @Failure      400 {object} apitypes.ErrorResponse "Invalid request payload or UUID"
+// @Failure      401 {object} apitypes.ErrorResponse "Unauthorized"
+// @Failure      500 {object} apitypes.ErrorResponse "Database update error"
+// @Security     BearerAuth
+// @Router       /v1/tickets/archive [post]
+func (h *BettingHandler) BulkArchive(c *echo.Context) error {
+	userID, ok := c.Get("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
+	}
+
+	var req model.BulkTicketActionRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid request payload"})
+	}
+
+	affected, err := h.svc.BulkArchiveTickets(c.Request().Context(), userID, req.TicketIDs)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, model.BulkTicketActionResponse{
+		Affected: affected,
+		Message:  "tickets archived successfully",
+	})
+}
+
+// BulkUnarchive godoc
+// @Summary      Bulk unarchive tracked tickets
+// @Description  Restores one or more archived tickets back to the active dashboard.
+// @Tags         tickets
+// @Accept       json
+// @Produce      json
+// @Param        request body model.BulkTicketActionRequest true "List of ticket UUIDs to unarchive"
+// @Success      200 {object} model.BulkTicketActionResponse "Tickets unarchived successfully"
+// @Failure      400 {object} apitypes.ErrorResponse "Invalid request payload or UUID"
+// @Failure      401 {object} apitypes.ErrorResponse "Unauthorized"
+// @Failure      500 {object} apitypes.ErrorResponse "Database update error"
+// @Security     BearerAuth
+// @Router       /v1/tickets/unarchive [post]
+func (h *BettingHandler) BulkUnarchive(c *echo.Context) error {
+	userID, ok := c.Get("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
+	}
+
+	var req model.BulkTicketActionRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid request payload"})
+	}
+
+	affected, err := h.svc.BulkUnarchiveTickets(c.Request().Context(), userID, req.TicketIDs)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, model.BulkTicketActionResponse{
+		Affected: affected,
+		Message:  "tickets unarchived successfully",
+	})
+}
+
+// BulkDelete godoc
+// @Summary      Bulk soft-delete tracked tickets
+// @Description  Soft-deletes one or more tracked tickets, hiding them from the user while preserving accounting stats.
+// @Tags         tickets
+// @Accept       json
+// @Produce      json
+// @Param        request body model.BulkTicketActionRequest true "List of ticket UUIDs to delete"
+// @Success      200 {object} model.BulkTicketActionResponse "Tickets deleted successfully"
+// @Failure      400 {object} apitypes.ErrorResponse "Invalid request payload or UUID"
+// @Failure      401 {object} apitypes.ErrorResponse "Unauthorized"
+// @Failure      500 {object} apitypes.ErrorResponse "Database update error"
+// @Security     BearerAuth
+// @Router       /v1/tickets/delete [post]
+func (h *BettingHandler) BulkDelete(c *echo.Context) error {
+	userID, ok := c.Get("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		return c.JSON(http.StatusUnauthorized, apitypes.ErrorResponse{Error: "unauthorized"})
+	}
+
+	var req model.BulkTicketActionRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: "invalid request payload"})
+	}
+
+	affected, err := h.svc.BulkDeleteTickets(c.Request().Context(), userID, req.TicketIDs)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, apitypes.ErrorResponse{Error: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, model.BulkTicketActionResponse{
+		Affected: affected,
+		Message:  "tickets deleted successfully",
 	})
 }
 

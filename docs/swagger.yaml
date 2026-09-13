@@ -203,6 +203,24 @@ definitions:
       username:
         type: string
     type: object
+  model.BulkTicketActionRequest:
+    properties:
+      ticket_ids:
+        example:
+        - '["3fa85f64-5717-4562-b3fc-2c963f66afa6"]'
+        items:
+          type: string
+        type: array
+    type: object
+  model.BulkTicketActionResponse:
+    properties:
+      affected:
+        example: 3
+        type: integer
+      message:
+        example: tickets archived successfully
+        type: string
+    type: object
   model.DashboardStatsResponse:
     properties:
       lost_tickets:
@@ -992,6 +1010,10 @@ paths:
         in: query
         name: since
         type: string
+      - description: Filter by archived status (default false)
+        in: query
+        name: archived
+        type: boolean
       produces:
       - application/json
       responses:
@@ -1124,6 +1146,121 @@ paths:
       summary: Update a tracked ticket
       tags:
       - tickets
+  /v1/tickets/archive:
+    post:
+      consumes:
+      - application/json
+      description: Archives one or more tracked tickets, hiding them from the active
+        dashboard into the archive.
+      parameters:
+      - description: List of ticket UUIDs to archive
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.BulkTicketActionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tickets archived successfully
+          schema:
+            $ref: '#/definitions/model.BulkTicketActionResponse'
+        "400":
+          description: Invalid request payload or UUID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Database update error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Bulk archive tracked tickets
+      tags:
+      - tickets
+  /v1/tickets/archived:
+    get:
+      description: Fetches the user's archived tickets with pagination, status filtering,
+        and delta syncs.
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by status (PENDING, WON, LOST)
+        in: query
+        name: status
+        type: string
+      - description: Delta sync timestamp (RFC3339)
+        in: query
+        name: since
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Paginated archived history list
+          schema:
+            $ref: '#/definitions/model.PaginatedHistoryResponse'
+        "401":
+          description: Unauthorized - missing or invalid token
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Database retrieval error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get archived ticket history
+      tags:
+      - tickets
+  /v1/tickets/delete:
+    post:
+      consumes:
+      - application/json
+      description: Soft-deletes one or more tracked tickets, hiding them from the
+        user while preserving accounting stats.
+      parameters:
+      - description: List of ticket UUIDs to delete
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.BulkTicketActionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tickets deleted successfully
+          schema:
+            $ref: '#/definitions/model.BulkTicketActionResponse'
+        "400":
+          description: Invalid request payload or UUID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Database update error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Bulk soft-delete tracked tickets
+      tags:
+      - tickets
   /v1/tickets/preview:
     post:
       consumes:
@@ -1195,6 +1332,42 @@ paths:
       security:
       - BearerAuth: []
       summary: Track a betting ticket
+      tags:
+      - tickets
+  /v1/tickets/unarchive:
+    post:
+      consumes:
+      - application/json
+      description: Restores one or more archived tickets back to the active dashboard.
+      parameters:
+      - description: List of ticket UUIDs to unarchive
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.BulkTicketActionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tickets unarchived successfully
+          schema:
+            $ref: '#/definitions/model.BulkTicketActionResponse'
+        "400":
+          description: Invalid request payload or UUID
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Database update error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Bulk unarchive tracked tickets
       tags:
       - tickets
   /v1/users/me/stats:

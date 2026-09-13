@@ -117,4 +117,7 @@ type UserTicket struct {
 	Stake         pgtype.Numeric     `json:"stake"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	Description   string             `json:"description"`
+	IsArchived    bool               `json:"is_archived"`
+	ArchivedAt    *time.Time         `json:"archived_at"`
+	DeletedAt     *time.Time         `json:"deleted_at"`
 }
